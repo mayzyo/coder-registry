@@ -15,14 +15,14 @@ module "qwen-code" {
   source   = "registry.coder.com/mayzyo/qwen-code/coder"
   version  = "1.0.0"
   agent_id = coder_agent.main.id
-  api_key  = var.dashscope_api_key
+  qwen_api_key = var.dashscope_api_key
 }
 ```
 
-By default, the module writes `~/.qwen/settings.json` for Dashscope's OpenAI-compatible endpoint, explicitly sets `telemetry.enabled = false`, and exposes the API key through `DASHSCOPE_API_KEY`. The API key is passed through a sensitive Terraform variable into `coder_env`; only the environment variable name is written to Qwen Code settings. The installer uses Qwen's standalone archive when available and falls back to a user-owned npm install under `~/.local`.
+By default, the module writes `~/.qwen/settings.json` for Dashscope's OpenAI-compatible endpoint, explicitly sets `telemetry.enabled = false` and `privacy.usageStatisticsEnabled = false`, and exposes the API key through `DASHSCOPE_API_KEY`. The API key is passed through a sensitive Terraform variable into `coder_env`; only the environment variable name is written to Qwen Code settings. The installer uses Qwen's standalone archive when available and falls back to a user-owned npm install under `~/.local`.
 
 > [!NOTE]
-> Qwen Code can also be configured interactively with `qwen` and `/auth`. Use `model`, `base_url`, `api_key_env_var`, `api_key`, and `generation_config` when you want workspaces to come up preconfigured from template variables.
+> Qwen Code can also be configured interactively with `qwen` and `/auth`. Use `qwen_model`, `qwen_base_url`, `qwen_api_key_env_var`, `qwen_api_key`, and `qwen_generation_config` when you want workspaces to come up preconfigured from template variables.
 
 ## Examples
 
@@ -38,7 +38,7 @@ module "qwen-code" {
   version  = "1.0.0"
   agent_id = coder_agent.main.id
   workdir  = local.qwen_workdir
-  api_key  = var.dashscope_api_key
+  qwen_api_key = var.dashscope_api_key
 }
 
 resource "coder_app" "qwen" {
@@ -65,18 +65,18 @@ module "qwen-code" {
   source          = "registry.coder.com/mayzyo/qwen-code/coder"
   version         = "1.0.0"
   agent_id        = coder_agent.main.id
-  model           = "qwen/qwen3-coder"
-  base_url        = "https://openrouter.ai/api/v1"
-  api_key_env_var = "OPENROUTER_API_KEY"
-  api_key         = var.openrouter_api_key
+  qwen_model           = "qwen/qwen3-coder"
+  qwen_base_url        = "https://openrouter.ai/api/v1"
+  qwen_api_key_env_var = "OPENROUTER_API_KEY"
+  qwen_api_key         = var.openrouter_api_key
 
-  generation_config = {
+  qwen_generation_config = {
     contextWindowSize = 262144
   }
 }
 ```
 
-Qwen Code requires an `envKey` for model providers. For local endpoints without authentication, pass a harmless placeholder value such as `ollama` or `not-needed` as `api_key`; it is still kept out of `settings.json`.
+Qwen Code requires an `envKey` for model providers. For local endpoints without authentication, pass a harmless placeholder value such as `ollama` or `not-needed` as `qwen_api_key`; it is still kept out of `settings.json`.
 
 ### Full settings override
 
@@ -87,10 +87,10 @@ module "qwen-code" {
   source   = "registry.coder.com/mayzyo/qwen-code/coder"
   version  = "1.0.0"
   agent_id = coder_agent.main.id
-  api_key  = var.openrouter_api_key
+  qwen_api_key = var.openrouter_api_key
 
-  api_key_env_var = "OPENROUTER_API_KEY"
-  settings = {
+  qwen_api_key_env_var = "OPENROUTER_API_KEY"
+  qwen_settings = {
     modelProviders = {
       openai = [{
         id      = "qwen/qwen3-coder"

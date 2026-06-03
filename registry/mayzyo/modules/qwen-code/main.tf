@@ -139,66 +139,66 @@ variable "configure_settings" {
   default     = true
 }
 
-variable "settings" {
-  description = "Complete Qwen Code settings object to write to ~/.qwen/settings.json. Prefer api_key for secrets instead of embedding them here."
+variable "qwen_settings" {
+  description = "Complete Qwen Code settings object to write to ~/.qwen/settings.json. Prefer qwen_api_key for secrets instead of embedding them here."
   type        = any
   default     = null
 }
 
-variable "auth_type" {
+variable "qwen_auth_type" {
   description = "Default Qwen Code auth protocol used when generating settings."
   type        = string
   default     = "openai"
 
   validation {
-    condition     = contains(["openai", "anthropic", "gemini"], var.auth_type)
-    error_message = "auth_type must be openai, anthropic, or gemini."
+    condition     = contains(["openai", "anthropic", "gemini"], var.qwen_auth_type)
+    error_message = "qwen_auth_type must be openai, anthropic, or gemini."
   }
 }
 
-variable "model" {
+variable "qwen_model" {
   description = "Default model name used when generating settings."
   type        = string
   default     = "qwen3.6-plus"
 }
 
-variable "model_display_name" {
-  description = "Human-readable model name used when generating settings. Defaults to model."
+variable "qwen_model_display_name" {
+  description = "Human-readable model name used when generating settings. Defaults to qwen_model."
   type        = string
   default     = ""
 }
 
-variable "base_url" {
+variable "qwen_base_url" {
   description = "Provider base URL used when generating settings. Leave empty for providers that do not need one."
   type        = string
   default     = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 }
 
-variable "provider_description" {
+variable "qwen_provider_description" {
   description = "Provider description used when generating settings."
   type        = string
   default     = "Qwen via Dashscope"
 }
 
-variable "api_key" {
-  description = "API key exposed to Qwen Code through api_key_env_var."
+variable "qwen_api_key" {
+  description = "API key exposed to Qwen Code through qwen_api_key_env_var."
   type        = string
   default     = ""
   sensitive   = true
 }
 
-variable "api_key_env_var" {
-  description = "Environment variable name Qwen Code should read for the API key. For local providers without auth, set api_key to a harmless placeholder such as ollama."
+variable "qwen_api_key_env_var" {
+  description = "Environment variable name Qwen Code should read for the API key. For local providers without auth, set qwen_api_key to a harmless placeholder such as ollama."
   type        = string
   default     = "DASHSCOPE_API_KEY"
 
   validation {
-    condition     = can(regex("^[A-Za-z_][A-Za-z0-9_]*$", var.api_key_env_var))
-    error_message = "api_key_env_var must be a valid environment variable name."
+    condition     = can(regex("^[A-Za-z_][A-Za-z0-9_]*$", var.qwen_api_key_env_var))
+    error_message = "qwen_api_key_env_var must be a valid environment variable name."
   }
 }
 
-variable "generation_config" {
+variable "qwen_generation_config" {
   description = "Optional generationConfig object included in the generated provider entry."
   type        = any
   default     = null
@@ -210,11 +210,17 @@ variable "enable_telemetry" {
   default     = false
 }
 
-resource "coder_env" "api_key" {
-  count    = var.api_key != "" && var.api_key_env_var != "" ? 1 : 0
+variable "enable_usage_statistics" {
+  description = "Whether to enable Qwen Code usage statistics in generated settings."
+  type        = bool
+  default     = false
+}
+
+resource "coder_env" "qwen_api_key" {
+  count    = var.qwen_api_key != "" && var.qwen_api_key_env_var != "" ? 1 : 0
   agent_id = var.agent_id
-  name     = var.api_key_env_var
-  value    = var.api_key
+  name     = var.qwen_api_key_env_var
+  value    = var.qwen_api_key
 }
 
 locals {
@@ -223,33 +229,36 @@ locals {
 
   generated_provider = merge(
     {
-      id   = var.model
-      name = var.model_display_name != "" ? var.model_display_name : var.model
+      id   = var.qwen_model
+      name = var.qwen_model_display_name != "" ? var.qwen_model_display_name : var.qwen_model
     },
-    var.base_url != "" ? { baseUrl = var.base_url } : {},
-    var.provider_description != "" ? { description = var.provider_description } : {},
-    { envKey = var.api_key_env_var },
-    var.generation_config != null ? { generationConfig = var.generation_config } : {},
+    var.qwen_base_url != "" ? { baseUrl = var.qwen_base_url } : {},
+    var.qwen_provider_description != "" ? { description = var.qwen_provider_description } : {},
+    { envKey = var.qwen_api_key_env_var },
+    var.qwen_generation_config != null ? { generationConfig = var.qwen_generation_config } : {},
   )
 
   generated_settings = {
     modelProviders = {
-      (var.auth_type) = [local.generated_provider]
+      (var.qwen_auth_type) = [local.generated_provider]
     }
     security = {
       auth = {
-        selectedType = var.auth_type
+        selectedType = var.qwen_auth_type
       }
     }
     model = {
-      name = var.model
+      name = var.qwen_model
     }
     telemetry = {
       enabled = var.enable_telemetry
     }
+    privacy = {
+      usageStatisticsEnabled = var.enable_usage_statistics
+    }
   }
 
-  settings_json = var.configure_settings ? (var.settings != null ? jsonencode(var.settings) : jsonencode(local.generated_settings)) : ""
+  settings_json = var.configure_settings ? (var.qwen_settings != null ? jsonencode(var.qwen_settings) : jsonencode(local.generated_settings)) : ""
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
     ARG_INSTALL_QWEN_CODE  = tostring(var.install_qwen_code)

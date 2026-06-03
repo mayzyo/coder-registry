@@ -16,13 +16,13 @@ describe("qwen-code", async () => {
     expect(state.outputs.scripts).toBeDefined();
   });
 
-  it("creates an API key environment variable when configured", async () => {
+  it("creates a Qwen API key environment variable when configured", async () => {
     const state = await runTerraformApply(import.meta.dir, {
       agent_id: "test-agent-id",
-      api_key: "test-key",
+      qwen_api_key: "test-key",
     });
 
-    const env = findResourceInstance(state, "coder_env", "api_key");
+    const env = findResourceInstance(state, "coder_env", "qwen_api_key");
     expect(env.name).toBe("DASHSCOPE_API_KEY");
   });
 });

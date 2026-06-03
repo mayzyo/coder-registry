@@ -31,21 +31,26 @@ run "defaults" {
   }
 
   assert {
-    condition     = length(resource.coder_env.api_key) == 0
-    error_message = "api key env var should be omitted when api_key is empty"
-  }
-}
-
-run "api_key_env" {
-  command = plan
-
-  variables {
-    agent_id = "test-agent-id"
-    api_key  = "test-key"
+    condition     = jsondecode(local.settings_json).privacy.usageStatisticsEnabled == false
+    error_message = "generated settings should explicitly disable Qwen Code usage statistics by default"
   }
 
   assert {
-    condition     = resource.coder_env.api_key[0].name == "DASHSCOPE_API_KEY"
+    condition     = length(resource.coder_env.qwen_api_key) == 0
+    error_message = "api key env var should be omitted when qwen_api_key is empty"
+  }
+}
+
+run "qwen_api_key_env" {
+  command = plan
+
+  variables {
+    agent_id      = "test-agent-id"
+    qwen_api_key  = "test-key"
+  }
+
+  assert {
+    condition     = resource.coder_env.qwen_api_key[0].name == "DASHSCOPE_API_KEY"
     error_message = "api key should use the default Dashscope env var"
   }
 
@@ -64,14 +69,14 @@ run "custom_provider_variables" {
   command = plan
 
   variables {
-    agent_id           = "test-agent-id"
-    model              = "qwen/qwen3-coder"
-    model_display_name = "Qwen3 Coder"
-    base_url           = "https://openrouter.ai/api/v1"
-    api_key_env_var    = "OPENROUTER_API_KEY"
-    api_key            = "test-openrouter-key"
-    provider_description = "Qwen through OpenRouter"
-    generation_config = {
+    agent_id                  = "test-agent-id"
+    qwen_model                = "qwen/qwen3-coder"
+    qwen_model_display_name   = "Qwen3 Coder"
+    qwen_base_url             = "https://openrouter.ai/api/v1"
+    qwen_api_key_env_var      = "OPENROUTER_API_KEY"
+    qwen_api_key              = "test-openrouter-key"
+    qwen_provider_description = "Qwen through OpenRouter"
+    qwen_generation_config    = {
       contextWindowSize = 262144
     }
   }
@@ -92,7 +97,7 @@ run "custom_provider_variables" {
   }
 
   assert {
-    condition     = resource.coder_env.api_key[0].name == "OPENROUTER_API_KEY"
+    condition     = resource.coder_env.qwen_api_key[0].name == "OPENROUTER_API_KEY"
     error_message = "API key should be exposed through the configured env var"
   }
 
@@ -102,16 +107,16 @@ run "custom_provider_variables" {
   }
 }
 
-run "invalid_api_key_env_var" {
+run "invalid_qwen_api_key_env_var" {
   command = plan
 
   variables {
-    agent_id        = "test-agent-id"
-    api_key_env_var = ""
+    agent_id             = "test-agent-id"
+    qwen_api_key_env_var = ""
   }
 
   expect_failures = [
-    var.api_key_env_var,
+    var.qwen_api_key_env_var,
   ]
 }
 
@@ -120,7 +125,7 @@ run "custom_settings" {
 
   variables {
     agent_id = "test-agent-id"
-    settings = {
+    qwen_settings = {
       model = {
         name = "custom-model"
       }
@@ -144,6 +149,20 @@ run "enable_telemetry" {
   assert {
     condition     = jsondecode(local.settings_json).telemetry.enabled == true
     error_message = "generated settings should enable telemetry when requested"
+  }
+}
+
+run "enable_usage_statistics" {
+  command = plan
+
+  variables {
+    agent_id                = "test-agent-id"
+    enable_usage_statistics = true
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).privacy.usageStatisticsEnabled == true
+    error_message = "generated settings should enable usage statistics when requested"
   }
 }
 
