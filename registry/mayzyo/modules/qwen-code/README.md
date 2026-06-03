@@ -8,7 +8,7 @@ tags: [agent, ai, qwen-code, cli]
 
 # Qwen Code
 
-Install and configure the [Qwen Code](https://github.com/QwenLM/qwen-code) CLI in your workspace. By default, the module creates a healthchecked AgentAPI web app that starts Qwen Code when the workspace starts.
+Install and configure the [Qwen Code](https://github.com/QwenLM/qwen-code) CLI in your workspace. Starting Qwen Code is left to the caller, such as a terminal command, IDE launcher, or custom `coder_app`.
 
 ```tf
 module "qwen-code" {
@@ -19,14 +19,14 @@ module "qwen-code" {
 }
 ```
 
-By default, the module writes `~/.qwen/settings.json` for Dashscope's OpenAI-compatible endpoint, explicitly sets `telemetry.enabled = false` and `privacy.usageStatisticsEnabled = false`, configures Coder's MCP server for task status reporting, and exposes the API key through `DASHSCOPE_API_KEY`. The API key is passed through a sensitive Terraform variable into `coder_env`; only the environment variable name is written to Qwen Code settings. The installer uses Qwen's standalone archive when available and falls back to a user-owned npm install under `~/.local`. AgentAPI state persistence is enabled by default so the web app can restore chat state across workspace restarts.
+By default, the module writes `~/.qwen/settings.json` for Dashscope's OpenAI-compatible endpoint, explicitly sets `telemetry.enabled = false` and `privacy.usageStatisticsEnabled = false`, and exposes the API key through `DASHSCOPE_API_KEY`. The API key is passed through a sensitive Terraform variable into `coder_env`; only the environment variable name is written to Qwen Code settings. The installer uses Qwen's standalone archive when available and falls back to a user-owned npm install under `~/.local`.
 
 > [!NOTE]
 > Qwen Code can also be configured interactively with `qwen` and `/auth`. Use `qwen_model`, `qwen_base_url`, `qwen_api_key_env_var`, `qwen_api_key`, and `qwen_generation_config` when you want workspaces to come up preconfigured from template variables.
 
 ## Examples
 
-### Standalone mode
+### Standalone mode with a launcher app
 
 ```tf
 locals {
@@ -40,21 +40,19 @@ module "qwen-code" {
   workdir  = local.qwen_workdir
   qwen_api_key = var.dashscope_api_key
 }
-```
 
-Set `create_app = false` if you only want the CLI installed and configured.
-
-### Automated task execution
-
-Pass a task prompt to start Qwen Code in headless mode and instruct it to report progress through Coder MCP.
-
-```tf
-module "qwen-code" {
-  source      = "registry.coder.com/mayzyo/qwen-code/coder"
-  version     = "1.0.0"
-  agent_id    = coder_agent.main.id
-  workdir     = "/home/coder/project"
-  task_prompt = data.coder_parameter.ai_prompt.value
+resource "coder_app" "qwen" {
+  agent_id     = coder_agent.main.id
+  slug         = "qwen"
+  display_name = "Qwen Code"
+  icon         = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/qwen-code.svg"
+  open_in      = "slim-window"
+  command      = <<-EOT
+    #!/bin/bash
+    set -e
+    cd ${local.qwen_workdir}
+    qwen
+  EOT
 }
 ```
 

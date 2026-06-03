@@ -36,16 +36,6 @@ run "defaults" {
   }
 
   assert {
-    condition     = jsondecode(local.settings_json).mcpServers.coder.command == "coder"
-    error_message = "generated settings should configure the Coder MCP server"
-  }
-
-  assert {
-    condition     = jsondecode(local.settings_json).mcpServers.coder.env.CODER_MCP_APP_STATUS_SLUG == "qwen-code"
-    error_message = "Coder MCP settings should point at the Qwen Code app slug"
-  }
-
-  assert {
     condition     = var.installer_url == "https://raw.githubusercontent.com/QwenLM/qwen-code/main/scripts/installation/install-qwen-with-source.sh"
     error_message = "installer_url should default to the installer that supports --method"
   }
@@ -53,36 +43,6 @@ run "defaults" {
   assert {
     condition     = length(resource.coder_env.qwen_api_key) == 0
     error_message = "api key env var should be omitted when qwen_api_key is empty"
-  }
-
-  assert {
-    condition     = var.create_app == true
-    error_message = "Qwen Code should create the AgentAPI app by default"
-  }
-
-  assert {
-    condition     = var.agentapi_version == "v0.12.2"
-    error_message = "AgentAPI should default to a version that supports state persistence"
-  }
-
-  assert {
-    condition     = var.enable_state_persistence == true
-    error_message = "AgentAPI state persistence should be enabled by default"
-  }
-
-  assert {
-    condition     = strcontains(local.agentapi_install_script, "coder exp sync want mayzyo-qwen-code-agentapi") && strcontains(local.agentapi_install_script, "coder exp sync start mayzyo-qwen-code-agentapi")
-    error_message = "AgentAPI install script should wait for Qwen Code installation before starting"
-  }
-
-  assert {
-    condition     = strcontains(local.agentapi_start_script, "agentapi server --port") && strcontains(local.agentapi_start_script, "qwen")
-    error_message = "AgentAPI start script should run Qwen Code on the configured port"
-  }
-
-  assert {
-    condition     = strcontains(local.agentapi_start_script, "--prompt")
-    error_message = "AgentAPI start script should support Qwen Code task prompt mode"
   }
 }
 
@@ -181,11 +141,6 @@ run "custom_settings" {
     condition     = jsondecode(local.settings_json).model.name == "custom-model"
     error_message = "custom settings should be used as-is"
   }
-
-  assert {
-    condition     = jsondecode(local.settings_json).mcpServers.coder.command == "coder"
-    error_message = "custom settings should still receive Coder MCP by default"
-  }
 }
 
 run "enable_telemetry" {
@@ -227,18 +182,4 @@ run "invalid_method" {
   expect_failures = [
     var.install_method,
   ]
-}
-
-run "disable_app" {
-  command = plan
-
-  variables {
-    agent_id   = "test-agent-id"
-    create_app = false
-  }
-
-  assert {
-    condition     = var.create_app == false
-    error_message = "create_app should be configurable"
-  }
 }

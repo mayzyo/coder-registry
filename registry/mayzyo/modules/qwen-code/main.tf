@@ -26,77 +26,6 @@ variable "workdir" {
   default     = null
 }
 
-variable "create_app" {
-  description = "Whether to create a healthchecked AgentAPI web app for Qwen Code."
-  type        = bool
-  default     = true
-}
-
-variable "app_slug" {
-  description = "Slug for the Qwen Code web app."
-  type        = string
-  default     = "qwen-code"
-
-  validation {
-    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.app_slug))
-    error_message = "app_slug must contain lowercase letters, numbers, and single hyphens between words."
-  }
-}
-
-variable "order" {
-  description = "Display order for the Qwen Code web app."
-  type        = number
-  default     = null
-}
-
-variable "group" {
-  description = "Workspace app group for Qwen Code."
-  type        = string
-  default     = null
-}
-
-variable "install_agentapi" {
-  description = "Whether to install AgentAPI for the Qwen Code web app."
-  type        = bool
-  default     = true
-}
-
-variable "agentapi_version" {
-  description = "AgentAPI version used by the Qwen Code web app."
-  type        = string
-  default     = "v0.12.2"
-}
-
-variable "agentapi_port" {
-  description = "Port used by the Qwen Code AgentAPI web app."
-  type        = number
-  default     = 3285
-}
-
-variable "agentapi_subdomain" {
-  description = "Whether the Qwen Code AgentAPI web app uses a subdomain."
-  type        = bool
-  default     = true
-}
-
-variable "enable_state_persistence" {
-  description = "Whether AgentAPI should save and restore Qwen Code chat state across workspace restarts."
-  type        = bool
-  default     = true
-}
-
-variable "state_file_path" {
-  description = "Optional AgentAPI state file path. Defaults to the Qwen Code AgentAPI module directory."
-  type        = string
-  default     = ""
-}
-
-variable "pid_file_path" {
-  description = "Optional AgentAPI PID file path. Defaults to the Qwen Code AgentAPI module directory."
-  type        = string
-  default     = ""
-}
-
 variable "pre_install_script" {
   description = "Custom script to run before installing Qwen Code."
   type        = string
@@ -275,24 +204,6 @@ variable "qwen_generation_config" {
   default     = null
 }
 
-variable "enable_coder_mcp" {
-  description = "Whether to configure Coder's MCP server for task status and timeline reporting."
-  type        = bool
-  default     = true
-}
-
-variable "task_prompt" {
-  description = "Optional task prompt to run Qwen Code in headless mode through AgentAPI."
-  type        = string
-  default     = ""
-}
-
-variable "task_system_prompt" {
-  description = "System instruction prepended to task_prompt so Qwen Code reports task status to Coder."
-  type        = string
-  default     = "Every step of the way, report tasks to Coder with proper descriptions and statuses."
-}
-
 variable "enable_telemetry" {
   description = "Whether to enable Qwen Code telemetry in generated settings."
   type        = bool
@@ -347,77 +258,7 @@ locals {
     }
   }
 
-  coder_mcp_server = {
-    command = "coder"
-    args    = ["exp", "mcp", "server"]
-    env = {
-      CODER_MCP_APP_STATUS_SLUG  = var.app_slug
-      CODER_MCP_AI_AGENTAPI_URL  = "http://localhost:${var.agentapi_port}"
-    }
-  }
-
-  base_settings = var.qwen_settings != null ? var.qwen_settings : local.generated_settings
-  settings_with_coder_mcp = var.enable_coder_mcp ? merge(
-    local.base_settings,
-    {
-      mcpServers = merge(
-        try(local.base_settings.mcpServers, {}),
-        { coder = local.coder_mcp_server },
-      )
-    },
-  ) : local.base_settings
-
-  settings_json = var.configure_settings ? jsonencode(local.settings_with_coder_mcp) : ""
-
-  agentapi_install_script = <<-EOT
-    #!/bin/bash
-    set -o errexit
-    set -o pipefail
-
-    trap 'coder exp sync complete mayzyo-qwen-code-agentapi' EXIT
-    coder exp sync want mayzyo-qwen-code-agentapi ${join(" ", module.coder_utils.scripts)}
-    coder exp sync start mayzyo-qwen-code-agentapi
-  EOT
-
-  agentapi_start_script = <<-EOT
-    #!/bin/bash
-    set -o errexit
-    set -o pipefail
-
-    AGENTAPI_PORT="$${2:-${var.agentapi_port}}"
-    TASK_PROMPT=$(echo -n '${base64encode(var.task_prompt)}' | base64 -d)
-    TASK_SYSTEM_PROMPT=$(echo -n '${base64encode(var.task_system_prompt)}' | base64 -d)
-
-    if [ -f "$HOME/.bashrc" ]; then
-      source "$HOME/.bashrc"
-    fi
-
-    if [ -s "$HOME/.nvm/nvm.sh" ]; then
-      source "$HOME/.nvm/nvm.sh"
-    fi
-
-    if command -v npm > /dev/null 2>&1; then
-      npm_prefix=$(npm config get prefix 2> /dev/null || true)
-      if [ -n "$npm_prefix" ]; then
-        export PATH="$npm_prefix/bin:$PATH"
-      fi
-    fi
-
-    export PATH="${var.install_root}/bin:${var.qwen_binary_path}:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
-
-    if ! command -v qwen > /dev/null 2>&1; then
-      echo "Error: qwen is not installed or not on PATH."
-      exit 1
-    fi
-
-    printf "Qwen Code version: %s\n" "$(qwen --version 2> /dev/null || echo unknown)"
-    if [ -n "$TASK_PROMPT" ]; then
-      PROMPT="$TASK_SYSTEM_PROMPT Your task at hand: $TASK_PROMPT"
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --prompt "$PROMPT"
-    else
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen
-    fi
-  EOT
+  settings_json = var.configure_settings ? (var.qwen_settings != null ? jsonencode(var.qwen_settings) : jsonencode(local.generated_settings)) : ""
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
     ARG_INSTALL_QWEN_CODE  = tostring(var.install_qwen_code)
@@ -449,38 +290,7 @@ module "coder_utils" {
   post_install_script = var.post_install_script
 }
 
-module "agentapi" {
-  count   = var.create_app ? 1 : 0
-  source  = "registry.coder.com/coder/agentapi/coder"
-  version = "2.4.0"
-
-  agent_id                 = var.agent_id
-  folder                   = local.workdir != "" ? local.workdir : "$HOME"
-  web_app_slug             = var.app_slug
-  web_app_order            = var.order
-  web_app_group            = var.group
-  web_app_icon             = var.icon
-  web_app_display_name     = "Qwen Code"
-  cli_app_slug             = "${var.app_slug}-cli"
-  cli_app_display_name     = "Qwen Code CLI"
-  module_dir_name          = ".coder-modules/mayzyo/qwen-code/agentapi"
-  install_agentapi         = var.install_agentapi
-  agentapi_version         = var.agentapi_version
-  agentapi_port            = var.agentapi_port
-  agentapi_subdomain       = var.agentapi_subdomain
-  enable_state_persistence = var.enable_state_persistence
-  state_file_path          = var.state_file_path
-  pid_file_path            = var.pid_file_path
-  install_script           = local.agentapi_install_script
-  start_script             = local.agentapi_start_script
-}
-
 output "scripts" {
   description = "Ordered list of coder exp sync names produced by this module, in run order."
   value       = module.coder_utils.scripts
-}
-
-output "app_id" {
-  description = "ID of the Qwen Code AgentAPI web app, or an empty string when create_app is false."
-  value       = var.create_app ? module.agentapi[0].task_app_id : ""
 }
