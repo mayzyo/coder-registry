@@ -346,6 +346,8 @@ locals {
     set -o errexit
     set -o pipefail
 
+    AGENTAPI_PORT="$${2:-${var.agentapi_port}}"
+
     if [ -f "$HOME/.bashrc" ]; then
       source "$HOME/.bashrc"
     fi
@@ -369,7 +371,7 @@ locals {
     fi
 
     printf "Qwen Code version: %s\n" "$(qwen --version 2> /dev/null || echo unknown)"
-    agentapi server --term-width 67 --term-height 1190 -- qwen
+    agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen
   EOT
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {

@@ -66,8 +66,8 @@ run "defaults" {
   }
 
   assert {
-    condition     = strcontains(local.agentapi_start_script, "agentapi server") && strcontains(local.agentapi_start_script, "qwen")
-    error_message = "AgentAPI start script should run Qwen Code"
+    condition     = strcontains(local.agentapi_start_script, "agentapi server --port") && strcontains(local.agentapi_start_script, "qwen")
+    error_message = "AgentAPI start script should run Qwen Code on the configured port"
   }
 }
 
