@@ -44,6 +44,31 @@ run "defaults" {
     condition     = length(resource.coder_env.qwen_api_key) == 0
     error_message = "api key env var should be omitted when qwen_api_key is empty"
   }
+
+  assert {
+    condition     = var.create_app == true
+    error_message = "Qwen Code should create the AgentAPI app by default"
+  }
+
+  assert {
+    condition     = var.agentapi_version == "v0.12.2"
+    error_message = "AgentAPI should default to a version that supports state persistence"
+  }
+
+  assert {
+    condition     = var.enable_state_persistence == true
+    error_message = "AgentAPI state persistence should be enabled by default"
+  }
+
+  assert {
+    condition     = strcontains(local.agentapi_install_script, "coder exp sync want mayzyo-qwen-code-agentapi")
+    error_message = "AgentAPI install script should wait for Qwen Code installation"
+  }
+
+  assert {
+    condition     = strcontains(local.agentapi_start_script, "agentapi server") && strcontains(local.agentapi_start_script, "qwen")
+    error_message = "AgentAPI start script should run Qwen Code"
+  }
 }
 
 run "qwen_api_key_env" {
@@ -182,4 +207,18 @@ run "invalid_method" {
   expect_failures = [
     var.install_method,
   ]
+}
+
+run "disable_app" {
+  command = plan
+
+  variables {
+    agent_id   = "test-agent-id"
+    create_app = false
+  }
+
+  assert {
+    condition     = var.create_app == false
+    error_message = "create_app should be configurable"
+  }
 }
