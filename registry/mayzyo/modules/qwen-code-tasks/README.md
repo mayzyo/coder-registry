@@ -1,6 +1,6 @@
 ---
 display_name: Qwen Code Tasks
-description: Wrap Qwen Code with AgentAPI, Coder Tasks, and Coder MCP reporting.
+description: Wrap Qwen Code with AgentAPI and Coder Tasks.
 icon: ../../.images/qwen-code.svg
 verified: false
 tags: [agent, ai, tasks, qwen-code]
@@ -8,7 +8,7 @@ tags: [agent, ai, tasks, qwen-code]
 
 # Qwen Code Tasks
 
-Install and configure Qwen Code through the `mayzyo/qwen-code` module, then run it behind AgentAPI so it can be used from Coder Tasks. The wrapper adds Coder MCP settings, starts Qwen Code in headless mode when a task prompt is provided, and exposes `task_app_id` for `coder_ai_task`.
+Install and configure Qwen Code through the `mayzyo/qwen-code` module, then run it behind AgentAPI so it can be used from Coder Tasks. The wrapper starts Qwen Code in headless mode when a task prompt is provided and exposes `task_app_id` for `coder_ai_task`.
 
 ```tf
 data "coder_task" "me" {}
@@ -16,7 +16,7 @@ data "coder_task" "me" {}
 module "qwen_code_tasks" {
   count   = data.coder_workspace.me.start_count
   source  = "registry.coder.com/mayzyo/qwen-code-tasks/coder"
-  version = "1.0.1"
+  version = "1.0.2"
 
   agent_id    = coder_agent.main.id
   workdir     = "/home/coder/project"
@@ -34,7 +34,7 @@ resource "coder_ai_task" "qwen" {
 }
 ```
 
-By default, the module configures Coder MCP in Qwen Code settings, pre-allows Qwen to call `mcp__coder__coder_report_task` and `Agent(general-purpose)`, disables Qwen telemetry and usage statistics in generated settings, and enables AgentAPI state persistence.
+By default, the module starts Qwen Code in `yolo` approval mode for unattended task execution, disables Qwen telemetry and usage statistics in generated settings, and enables AgentAPI state persistence.
 
 > [!NOTE]
 > This module is a task/runtime wrapper. Use `mayzyo/qwen-code` directly when you only need the Qwen Code CLI installed and configured.

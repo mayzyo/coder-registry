@@ -80,21 +80,9 @@ variable "qwen_base_url" {
 }
 
 variable "qwen_settings" {
-  description = "Optional complete Qwen Code settings object. Coder MCP is merged in by default."
+  description = "Optional complete Qwen Code settings object."
   type        = any
   default     = null
-}
-
-variable "enable_coder_mcp" {
-  description = "Whether to configure Coder's MCP server for task status and timeline reporting."
-  type        = bool
-  default     = true
-}
-
-variable "allow_general_purpose_agent" {
-  description = "Whether to pre-allow Qwen Code's general-purpose Agent tool for unattended task execution."
-  type        = bool
-  default     = true
 }
 
 variable "task_prompt" {
@@ -103,16 +91,21 @@ variable "task_prompt" {
   default     = ""
 }
 
-variable "install_qwen_code" {
-  description = "Whether to install Qwen Code through the qwen-code module."
-  type        = bool
-  default     = true
-}
-
 variable "qwen_code_version" {
   description = "The Qwen Code version to install."
   type        = string
   default     = "latest"
+}
+
+variable "qwen_approval_mode" {
+  description = "Qwen Code approval mode used when starting AgentAPI."
+  type        = string
+  default     = "yolo"
+
+  validation {
+    condition     = contains(["default", "auto-edit", "yolo", "plan"], var.qwen_approval_mode)
+    error_message = "qwen_approval_mode must be default, auto-edit, yolo, or plan."
+  }
 }
 
 variable "install_agentapi" {
@@ -158,23 +151,6 @@ variable "post_install_script" {
 }
 
 locals {
-  qwen_append_system_prompt = <<-EOT
-    # Task Progress Reporting
-
-    For every non-trivial task, use `coder_report_task`.
-
-    - **Start:** Report `start` before work.
-    - **In Progress:** Report `in_progress` on progress, phase changes, or blockers.
-    - **Finish:** Report `finish` when done.
-    - **Limit:** Report text must be fewer than 120 characters.
-    - **Schema Discipline:** Use the exact MCP schema only.
-    EOT
-
-  allowed_permissions = distinct(concat(
-    ["mcp__coder__coder_report_task"],
-    var.allow_general_purpose_agent ? ["Agent(general-purpose)"] : [],
-  ))
-
   qwen_settings = {
     "$version" = 4
     modelProviders = {
@@ -199,47 +175,9 @@ locals {
     privacy = {
       usageStatisticsEnabled = false
     }
-    permissions = {
-      allow = local.allowed_permissions
-    }
   }
 
-  coder_mcp_server = {
-    command = "coder"
-    args    = ["exp", "mcp", "server", "--allowed-tools", "coder_report_task"]
-    env = {
-      CODER_MCP_APP_STATUS_SLUG = var.app_slug
-      CODER_MCP_AI_AGENTAPI_URL = "http://localhost:${var.agentapi_port}"
-      CODER_MCP_ALLOWED_TOOLS   = "coder_report_task"
-    }
-  }
-
-  base_settings = merge(
-    {
-      "$version"   = 4
-      mcpServers  = {}
-      permissions = {}
-    },
-    var.qwen_settings != null ? var.qwen_settings : local.qwen_settings,
-  )
-  settings = var.enable_coder_mcp ? merge(
-    local.base_settings,
-    {
-      mcpServers = merge(
-        try(local.base_settings.mcpServers, {}),
-        { coder = local.coder_mcp_server },
-      )
-      permissions = merge(
-        try(local.base_settings.permissions, {}),
-        {
-          allow = distinct(concat(
-            try(local.base_settings.permissions.allow, []),
-            local.allowed_permissions,
-          ))
-        },
-      )
-    },
-  ) : local.base_settings
+  settings = var.qwen_settings != null ? var.qwen_settings : local.qwen_settings
 
   agentapi_start_script = <<-EOT
     #!/bin/bash
@@ -273,9 +211,9 @@ locals {
 
     printf "Qwen Code version: %s\n" "$(qwen --version 2> /dev/null || echo unknown)"
     if [ -n "$TASK_PROMPT" ]; then
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --append-system-prompt ${jsonencode(local.qwen_append_system_prompt)} --prompt "$TASK_PROMPT"
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --approval-mode ${var.qwen_approval_mode} --prompt "$TASK_PROMPT"
     else
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --append-system-prompt ${jsonencode(local.qwen_append_system_prompt)} 
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --approval-mode ${var.qwen_approval_mode}
     fi
   EOT
 }
@@ -288,7 +226,7 @@ module "qwen_code" {
   workdir              = var.workdir
   pre_install_script   = var.pre_install_script
   post_install_script  = var.post_install_script
-  install_qwen_code    = var.install_qwen_code
+  install_qwen_code    = true
   qwen_code_version    = var.qwen_code_version
   qwen_api_key         = var.qwen_api_key
   qwen_api_key_env_var = var.qwen_api_key_env_var

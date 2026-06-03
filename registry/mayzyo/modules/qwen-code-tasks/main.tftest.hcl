@@ -6,33 +6,18 @@ run "defaults" {
   }
 
   assert {
-    condition     = local.settings.mcpServers.coder.command == "coder"
-    error_message = "settings should configure the Coder MCP server"
+    condition     = !contains(keys(try(local.settings.mcpServers, {})), "coder")
+    error_message = "settings should not configure the Coder MCP server"
   }
 
   assert {
-    condition     = contains(local.settings.mcpServers.coder.args, "--allowed-tools") && contains(local.settings.mcpServers.coder.args, "coder_report_task")
-    error_message = "Coder MCP should expose coder_report_task for timeline reporting"
+    condition     = !contains(try(local.settings.permissions.allow, []), "mcp__coder__coder_report_task")
+    error_message = "Qwen settings should not pre-allow coder_report_task"
   }
 
   assert {
-    condition     = local.settings.mcpServers.coder.env.CODER_MCP_APP_STATUS_SLUG == "qwen-code"
-    error_message = "Coder MCP should target the default app slug"
-  }
-
-  assert {
-    condition     = local.settings.mcpServers.coder.env.CODER_MCP_ALLOWED_TOOLS == "coder_report_task"
-    error_message = "Coder MCP env should restrict allowed tools to coder_report_task"
-  }
-
-  assert {
-    condition     = contains(local.settings.permissions.allow, "mcp__coder__coder_report_task")
-    error_message = "Qwen settings should pre-allow coder_report_task"
-  }
-
-  assert {
-    condition     = contains(local.settings.permissions.allow, "Agent(general-purpose)")
-    error_message = "Qwen settings should pre-allow the general-purpose Agent tool by default"
+    condition     = var.qwen_approval_mode == "yolo"
+    error_message = "Qwen Code should default to yolo approval mode for unattended tasks"
   }
 
   assert {
@@ -51,13 +36,13 @@ run "defaults" {
   }
 
   assert {
-    condition     = strcontains(local.agentapi_start_script, "--append-system-prompt") && strcontains(local.agentapi_start_script, "--prompt")
-    error_message = "start script should support Qwen Code headless task mode"
+    condition     = strcontains(local.agentapi_start_script, "--approval-mode yolo") && strcontains(local.agentapi_start_script, "--prompt")
+    error_message = "start script should run Qwen Code in yolo mode for headless tasks"
   }
 
   assert {
-    condition     = strcontains(var.task_system_prompt, "coder_report_task")
-    error_message = "default system prompt should instruct Qwen to report timeline updates"
+    condition     = !strcontains(local.agentapi_start_script, "--append-system-prompt") && !strcontains(local.agentapi_start_script, "--system-prompt")
+    error_message = "start script should not inject a system prompt"
   }
 }
 
@@ -83,16 +68,16 @@ run "custom_provider" {
   }
 }
 
-run "disable_general_purpose_agent_permission" {
+run "custom_approval_mode" {
   command = plan
 
   variables {
-    agent_id                    = "test-agent-id"
-    allow_general_purpose_agent = false
+    agent_id           = "test-agent-id"
+    qwen_approval_mode = "auto-edit"
   }
 
   assert {
-    condition     = !contains(local.settings.permissions.allow, "Agent(general-purpose)")
-    error_message = "general-purpose Agent permission should be optional"
+    condition     = strcontains(local.agentapi_start_script, "--approval-mode auto-edit")
+    error_message = "start script should use the configured approval mode"
   }
 }
