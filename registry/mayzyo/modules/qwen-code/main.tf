@@ -336,7 +336,9 @@ locals {
     set -o errexit
     set -o pipefail
 
+    trap 'coder exp sync complete mayzyo-qwen-code-agentapi' EXIT
     coder exp sync want mayzyo-qwen-code-agentapi ${join(" ", module.coder_utils.scripts)}
+    coder exp sync start mayzyo-qwen-code-agentapi
   EOT
 
   agentapi_start_script = <<-EOT

@@ -61,8 +61,8 @@ run "defaults" {
   }
 
   assert {
-    condition     = strcontains(local.agentapi_install_script, "coder exp sync want mayzyo-qwen-code-agentapi")
-    error_message = "AgentAPI install script should wait for Qwen Code installation"
+    condition     = strcontains(local.agentapi_install_script, "coder exp sync want mayzyo-qwen-code-agentapi") && strcontains(local.agentapi_install_script, "coder exp sync start mayzyo-qwen-code-agentapi")
+    error_message = "AgentAPI install script should wait for Qwen Code installation before starting"
   }
 
   assert {
