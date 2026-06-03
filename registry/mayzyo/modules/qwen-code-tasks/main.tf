@@ -103,12 +103,6 @@ variable "task_prompt" {
   default     = ""
 }
 
-variable "task_system_prompt" {
-  description = "System instruction passed to Qwen Code headless mode."
-  type        = string
-  default     = "You are Qwen Code. Use the coder_report_task mcp tool to report what you are about to do and update task status, update status again with a sentence summary of what you did when you finish."
-}
-
 variable "install_qwen_code" {
   description = "Whether to install Qwen Code through the qwen-code module."
   type        = bool
@@ -164,6 +158,18 @@ variable "post_install_script" {
 }
 
 locals {
+  qwen_append_system_prompt = <<-EOT
+    # Task Progress Reporting
+
+    For every non-trivial task, use `coder_report_task`.
+
+    - **Start:** Report `start` before work.
+    - **In Progress:** Report `in_progress` on progress, phase changes, or blockers.
+    - **Finish:** Report `finish` when done.
+    - **Limit:** Report text must be fewer than 120 characters.
+    - **Schema Discipline:** Use the exact MCP schema only.
+    EOT
+
   allowed_permissions = distinct(concat(
     ["mcp__coder__coder_report_task"],
     var.allow_general_purpose_agent ? ["Agent(general-purpose)"] : [],
@@ -268,9 +274,9 @@ locals {
 
     printf "Qwen Code version: %s\n" "$(qwen --version 2> /dev/null || echo unknown)"
     if [ -n "$TASK_PROMPT" ]; then
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --system-prompt "$TASK_SYSTEM_PROMPT" --prompt "$TASK_PROMPT"
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --append-system-prompt ${jsonencode(local.qwen_append_system_prompt)} --prompt "$TASK_PROMPT"
     else
-      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --append-system-prompt ${jsonencode(local.qwen_append_system_prompt)} 
     fi
   EOT
 }

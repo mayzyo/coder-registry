@@ -51,7 +51,7 @@ run "defaults" {
   }
 
   assert {
-    condition     = strcontains(local.agentapi_start_script, "--system-prompt") && strcontains(local.agentapi_start_script, "--prompt")
+    condition     = strcontains(local.agentapi_start_script, "--append-system-prompt") && strcontains(local.agentapi_start_script, "--prompt")
     error_message = "start script should support Qwen Code headless task mode"
   }
 
