@@ -90,6 +90,11 @@ run_official_standalone_installer() {
   download_file "$${ARG_INSTALLER_URL}" "$${installer}" || return
   chmod +x "$${installer}" || return
 
+  if ! grep -q -- "--method" "$${installer}"; then
+    echo "Warning: Qwen installer at $${ARG_INSTALLER_URL} does not support --method; skipping standalone installer."
+    return 2
+  fi
+
   local args=(
     --method standalone
     --source "$${ARG_INSTALL_SOURCE}"

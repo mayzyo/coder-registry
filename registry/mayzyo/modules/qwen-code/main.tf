@@ -102,7 +102,7 @@ variable "install_base_url" {
 variable "installer_url" {
   description = "HTTPS URL for Qwen Code's official installer script."
   type        = string
-  default     = "https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen.sh"
+  default     = "https://raw.githubusercontent.com/QwenLM/qwen-code/main/scripts/installation/install-qwen-with-source.sh"
 
   validation {
     condition     = startswith(var.installer_url, "https://")

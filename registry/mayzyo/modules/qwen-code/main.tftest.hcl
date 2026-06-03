@@ -36,6 +36,11 @@ run "defaults" {
   }
 
   assert {
+    condition     = var.installer_url == "https://raw.githubusercontent.com/QwenLM/qwen-code/main/scripts/installation/install-qwen-with-source.sh"
+    error_message = "installer_url should default to the installer that supports --method"
+  }
+
+  assert {
     condition     = length(resource.coder_env.qwen_api_key) == 0
     error_message = "api key env var should be omitted when qwen_api_key is empty"
   }
