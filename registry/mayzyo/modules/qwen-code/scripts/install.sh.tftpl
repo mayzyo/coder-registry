@@ -1,0 +1,225 @@
+#!/bin/bash
+
+set -euo pipefail
+
+command_exists() {
+  command -v "$1" > /dev/null 2>&1
+}
+
+expand_path() {
+  local value="$1"
+  value="$${value/#\~/$HOME}"
+  value="$${value//\$HOME/$HOME}"
+  printf '%s' "$${value}"
+}
+
+download_file() {
+  local url="$1"
+  local destination="$2"
+
+  if command_exists curl; then
+    curl -fsSL --retry 2 "$${url}" -o "$${destination}"
+    return
+  fi
+
+  if command_exists wget; then
+    wget -q --tries=3 "$${url}" -O "$${destination}"
+    return
+  fi
+
+  echo "Error: curl or wget is required to download the Qwen Code installer."
+  return 1
+}
+
+add_path_to_shell_profiles() {
+  local path_dir="$1"
+
+  for profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.zshrc"; do
+    if [ -f "$${profile}" ] && ! grep -q "$${path_dir}" "$${profile}" 2> /dev/null; then
+      echo "export PATH=\"\$PATH:$${path_dir}\"" >> "$${profile}"
+      echo "Added $${path_dir} to $${profile}"
+    fi
+  done
+
+  local fish_config="$HOME/.config/fish/config.fish"
+  if [ -f "$${fish_config}" ] && ! grep -q "$${path_dir}" "$${fish_config}" 2> /dev/null; then
+    echo "fish_add_path $${path_dir}" >> "$${fish_config}"
+    echo "Added $${path_dir} to $${fish_config}"
+  fi
+}
+
+write_source_json() {
+  local source="$1"
+
+  mkdir -p "$HOME/.qwen"
+  printf '{\n  "source": "%s"\n}\n' "$${source}" > "$HOME/.qwen/source.json"
+}
+
+require_node() {
+  if ! command_exists node; then
+    echo "Error: Node.js 20 or newer is required for npm installation."
+    return 1
+  fi
+
+  local node_major
+  node_major=$(node -p "Number(process.versions.node.split('.')[0])" 2> /dev/null || true)
+  if [ -z "$${node_major}" ] || [ "$${node_major}" -lt 20 ]; then
+    echo "Error: Node.js 20 or newer is required for npm installation."
+    return 1
+  fi
+}
+
+install_npm() {
+  require_node
+  if ! command_exists npm; then
+    echo "Error: npm is required for npm installation."
+    return 1
+  fi
+
+  mkdir -p "$${INSTALL_ROOT}"
+
+  local npm_version="$${ARG_QWEN_CODE_VERSION#v}"
+  local package="@qwen-code/qwen-code@$${npm_version}"
+  echo "Installing $${package} via npm..."
+  npm install -g --prefix "$${INSTALL_ROOT}" "$${package}" --registry "$${ARG_NPM_REGISTRY}"
+  write_source_json "$${ARG_INSTALL_SOURCE}"
+}
+
+run_official_standalone_installer() {
+  local installer="$${MODULE_SCRIPTS_DIR}/install-qwen.sh"
+  download_file "$${ARG_INSTALLER_URL}" "$${installer}" || return
+  chmod +x "$${installer}" || return
+
+  local args=(
+    --method standalone
+    --source "$${ARG_INSTALL_SOURCE}"
+    --mirror "$${ARG_INSTALL_MIRROR}"
+    --version "$${ARG_QWEN_CODE_VERSION}"
+    --registry "$${ARG_NPM_REGISTRY}"
+  )
+
+  if [ -n "$${ARG_INSTALL_BASE_URL}" ]; then
+    args+=(--base-url "$${ARG_INSTALL_BASE_URL}")
+  fi
+
+  QWEN_INSTALL_ROOT="$${INSTALL_ROOT}" \
+    QWEN_INSTALL_LIB_PARENT="$${INSTALL_ROOT}/lib" \
+    QWEN_INSTALL_BIN_DIR="$${INSTALL_BIN_DIR}" \
+    bash "$${installer}" "$${args[@]}"
+}
+
+install_qwen_code() {
+  if [ "$${ARG_INSTALL_QWEN_CODE}" != "true" ]; then
+    echo "Skipping Qwen Code installation."
+    export PATH="$${QWEN_BINARY_PATH}:$PATH"
+    return
+  fi
+
+  export PATH="$${INSTALL_BIN_DIR}:$PATH"
+
+  case "$${ARG_INSTALL_METHOD}" in
+    standalone)
+      run_official_standalone_installer
+      ;;
+    npm)
+      install_npm
+      ;;
+    detect)
+      set +e
+      run_official_standalone_installer
+      local standalone_status=$?
+      set -e
+
+      if [ "$${standalone_status}" -eq 0 ]; then
+        return
+      fi
+
+      if [ "$${standalone_status}" -eq 2 ]; then
+        echo "Standalone archive unavailable; falling back to npm."
+        install_npm
+        return
+      fi
+
+      echo "Qwen Code standalone installation failed with exit code $${standalone_status}."
+      return "$${standalone_status}"
+      ;;
+  esac
+}
+
+configure_qwen_code() {
+  if [ -n "$${ARG_WORKDIR}" ]; then
+    mkdir -p "$${ARG_WORKDIR}"
+  fi
+
+  if [ "$${ARG_CONFIGURE_SETTINGS}" = "true" ] && [ -n "$${ARG_SETTINGS_JSON}" ]; then
+    mkdir -p "$HOME/.qwen"
+    echo "$${ARG_SETTINGS_JSON}" | base64 -d > "$HOME/.qwen/settings.json"
+    chmod 0600 "$HOME/.qwen/settings.json"
+    echo "Wrote Qwen Code settings to $HOME/.qwen/settings.json"
+  fi
+}
+
+ensure_qwen_in_path() {
+  local qwen_bin=""
+  if command_exists qwen; then
+    qwen_bin=$(command -v qwen)
+  elif [ -x "$${INSTALL_BIN_DIR}/qwen" ]; then
+    qwen_bin="$${INSTALL_BIN_DIR}/qwen"
+  elif [ -x "$${QWEN_BINARY_PATH}/qwen" ]; then
+    qwen_bin="$${QWEN_BINARY_PATH}/qwen"
+  fi
+
+  if [ -z "$${qwen_bin}" ]; then
+    echo "Warning: Could not find qwen binary after installation."
+    return
+  fi
+
+  local qwen_dir
+  qwen_dir=$(dirname "$${qwen_bin}")
+
+  if [ -n "$${CODER_SCRIPT_BIN_DIR:-}" ] && [ ! -e "$${CODER_SCRIPT_BIN_DIR}/qwen" ]; then
+    ln -s "$${qwen_bin}" "$${CODER_SCRIPT_BIN_DIR}/qwen"
+    echo "Created symlink: $${CODER_SCRIPT_BIN_DIR}/qwen -> $${qwen_bin}"
+  fi
+
+  add_path_to_shell_profiles "$${qwen_dir}"
+  echo "Qwen Code version: $(qwen --version 2> /dev/null || echo unknown)"
+}
+
+ARG_INSTALL_QWEN_CODE='${ARG_INSTALL_QWEN_CODE}'
+ARG_INSTALL_METHOD='${ARG_INSTALL_METHOD}'
+ARG_QWEN_CODE_VERSION='${ARG_QWEN_CODE_VERSION}'
+ARG_INSTALL_SOURCE='${ARG_INSTALL_SOURCE}'
+ARG_INSTALL_MIRROR='${ARG_INSTALL_MIRROR}'
+ARG_INSTALL_BASE_URL=$(echo -n '${ARG_INSTALL_BASE_URL}' | base64 -d)
+ARG_INSTALLER_URL=$(echo -n '${ARG_INSTALLER_URL}' | base64 -d)
+ARG_NPM_REGISTRY=$(echo -n '${ARG_NPM_REGISTRY}' | base64 -d)
+ARG_INSTALL_ROOT=$(echo -n '${ARG_INSTALL_ROOT}' | base64 -d)
+ARG_QWEN_BINARY_PATH=$(echo -n '${ARG_QWEN_BINARY_PATH}' | base64 -d)
+ARG_WORKDIR=$(echo -n '${ARG_WORKDIR}' | base64 -d)
+ARG_SETTINGS_JSON='${ARG_SETTINGS_JSON}'
+ARG_CONFIGURE_SETTINGS='${ARG_CONFIGURE_SETTINGS}'
+
+INSTALL_ROOT=$(expand_path "$${ARG_INSTALL_ROOT}")
+INSTALL_BIN_DIR="$${INSTALL_ROOT}/bin"
+QWEN_BINARY_PATH=$(expand_path "$${ARG_QWEN_BINARY_PATH}")
+MODULE_SCRIPTS_DIR="$HOME/.coder-modules/mayzyo/qwen-code/scripts"
+
+mkdir -p "$${MODULE_SCRIPTS_DIR}"
+
+echo "--------------------------------"
+printf "install_qwen_code: %s\n" "$${ARG_INSTALL_QWEN_CODE}"
+printf "install_method: %s\n" "$${ARG_INSTALL_METHOD}"
+printf "qwen_code_version: %s\n" "$${ARG_QWEN_CODE_VERSION}"
+printf "install_source: %s\n" "$${ARG_INSTALL_SOURCE}"
+printf "install_mirror: %s\n" "$${ARG_INSTALL_MIRROR}"
+printf "install_base_url: %s\n" "$${ARG_INSTALL_BASE_URL}"
+printf "npm_registry: %s\n" "$${ARG_NPM_REGISTRY}"
+printf "install_root: %s\n" "$${INSTALL_ROOT}"
+printf "workdir: %s\n" "$${ARG_WORKDIR}"
+printf "configure_settings: %s\n" "$${ARG_CONFIGURE_SETTINGS}"
+echo "--------------------------------"
+
+install_qwen_code
+configure_qwen_code
+ensure_qwen_in_path
