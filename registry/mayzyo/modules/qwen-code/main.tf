@@ -275,6 +275,24 @@ variable "qwen_generation_config" {
   default     = null
 }
 
+variable "enable_coder_mcp" {
+  description = "Whether to configure Coder's MCP server for task status and timeline reporting."
+  type        = bool
+  default     = true
+}
+
+variable "task_prompt" {
+  description = "Optional task prompt to run Qwen Code in headless mode through AgentAPI."
+  type        = string
+  default     = ""
+}
+
+variable "task_system_prompt" {
+  description = "System instruction prepended to task_prompt so Qwen Code reports task status to Coder."
+  type        = string
+  default     = "Every step of the way, report tasks to Coder with proper descriptions and statuses."
+}
+
 variable "enable_telemetry" {
   description = "Whether to enable Qwen Code telemetry in generated settings."
   type        = bool
@@ -329,7 +347,27 @@ locals {
     }
   }
 
-  settings_json = var.configure_settings ? (var.qwen_settings != null ? jsonencode(var.qwen_settings) : jsonencode(local.generated_settings)) : ""
+  coder_mcp_server = {
+    command = "coder"
+    args    = ["exp", "mcp", "server"]
+    env = {
+      CODER_MCP_APP_STATUS_SLUG  = var.app_slug
+      CODER_MCP_AI_AGENTAPI_URL  = "http://localhost:${var.agentapi_port}"
+    }
+  }
+
+  base_settings = var.qwen_settings != null ? var.qwen_settings : local.generated_settings
+  settings_with_coder_mcp = var.enable_coder_mcp ? merge(
+    local.base_settings,
+    {
+      mcpServers = merge(
+        try(local.base_settings.mcpServers, {}),
+        { coder = local.coder_mcp_server },
+      )
+    },
+  ) : local.base_settings
+
+  settings_json = var.configure_settings ? jsonencode(local.settings_with_coder_mcp) : ""
 
   agentapi_install_script = <<-EOT
     #!/bin/bash
@@ -347,6 +385,8 @@ locals {
     set -o pipefail
 
     AGENTAPI_PORT="$${2:-${var.agentapi_port}}"
+    TASK_PROMPT=$(echo -n '${base64encode(var.task_prompt)}' | base64 -d)
+    TASK_SYSTEM_PROMPT=$(echo -n '${base64encode(var.task_system_prompt)}' | base64 -d)
 
     if [ -f "$HOME/.bashrc" ]; then
       source "$HOME/.bashrc"
@@ -371,7 +411,12 @@ locals {
     fi
 
     printf "Qwen Code version: %s\n" "$(qwen --version 2> /dev/null || echo unknown)"
-    agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen
+    if [ -n "$TASK_PROMPT" ]; then
+      PROMPT="$TASK_SYSTEM_PROMPT Your task at hand: $TASK_PROMPT"
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen --prompt "$PROMPT"
+    else
+      agentapi server --port "$AGENTAPI_PORT" --term-width 67 --term-height 1190 -- qwen
+    fi
   EOT
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
