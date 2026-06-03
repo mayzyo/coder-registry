@@ -1,7 +1,7 @@
 ---
 display_name: Qwen Code
 description: Install and configure the Qwen Code CLI in your workspace.
-icon: ../../../../.icons/qwen-code.svg
+icon: ../../.images/qwen-code.svg
 verified: false
 tags: [agent, ai, qwen-code, cli]
 ---
