@@ -38,3 +38,4 @@ By default, the module configures Coder MCP in Qwen Code settings, disables Qwen
 
 > [!NOTE]
 > This module is a task/runtime wrapper. Use `mayzyo/qwen-code` directly when you only need the Qwen Code CLI installed and configured.
+> When consumed from Git, this wrapper uses the sibling `../qwen-code` module from the same checked-out repository, so both modules come from the same branch or tag.
