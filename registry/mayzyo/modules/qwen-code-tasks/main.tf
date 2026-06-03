@@ -100,7 +100,7 @@ variable "task_prompt" {
 variable "task_system_prompt" {
   description = "System instruction passed to Qwen Code headless mode."
   type        = string
-  default     = "You are Qwen Code running inside a Coder workspace. Every step of the way, report your progress using the coder_report_task tool with proper summaries and statuses. Call coder_report_task when you start, make meaningful progress, become blocked, and finish. Inspect the repository first, make the smallest safe plan, preserve existing conventions, verify changes, and finish with a concise summary of changed files and checks run."
+  default     = "You are Qwen Code running inside a Coder workspace. Use the coder_report_task tool to report meaningful task status updates to Coder when you start, make meaningful progress, become blocked, and finish. Inspect the repository first, make the smallest safe plan, preserve existing conventions, verify changes, and finish with a concise summary of changed files and checks run."
 }
 
 variable "install_qwen_code" {
@@ -159,6 +159,7 @@ variable "post_install_script" {
 
 locals {
   qwen_settings = {
+    "$version" = 4
     modelProviders = {
       openai = [{
         id      = var.qwen_model
@@ -181,6 +182,9 @@ locals {
     privacy = {
       usageStatisticsEnabled = false
     }
+    permissions = {
+      allow = ["mcp__coder__coder_report_task"]
+    }
   }
 
   coder_mcp_server = {
@@ -194,7 +198,11 @@ locals {
   }
 
   base_settings = merge(
-    { mcpServers = {} },
+    {
+      "$version"   = 4
+      mcpServers  = {}
+      permissions = {}
+    },
     var.qwen_settings != null ? var.qwen_settings : local.qwen_settings,
   )
   settings = var.enable_coder_mcp ? merge(
@@ -203,6 +211,15 @@ locals {
       mcpServers = merge(
         try(local.base_settings.mcpServers, {}),
         { coder = local.coder_mcp_server },
+      )
+      permissions = merge(
+        try(local.base_settings.permissions, {}),
+        {
+          allow = distinct(concat(
+            try(local.base_settings.permissions.allow, []),
+            ["mcp__coder__coder_report_task"],
+          ))
+        },
       )
     },
   ) : local.base_settings

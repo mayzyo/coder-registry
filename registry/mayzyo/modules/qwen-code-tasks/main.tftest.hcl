@@ -26,6 +26,11 @@ run "defaults" {
   }
 
   assert {
+    condition     = contains(local.settings.permissions.allow, "mcp__coder__coder_report_task")
+    error_message = "Qwen settings should pre-allow coder_report_task"
+  }
+
+  assert {
     condition     = local.settings.modelProviders.openai[0].baseUrl == "http://host.docker.internal:11434/v1"
     error_message = "settings should use the default OpenAI-compatible base URL"
   }
