@@ -31,6 +31,11 @@ run "defaults" {
   }
 
   assert {
+    condition     = contains(local.settings.permissions.allow, "Agent(general-purpose)")
+    error_message = "Qwen settings should pre-allow the general-purpose Agent tool by default"
+  }
+
+  assert {
     condition     = local.settings.modelProviders.openai[0].baseUrl == "http://host.docker.internal:11434/v1"
     error_message = "settings should use the default OpenAI-compatible base URL"
   }
@@ -75,5 +80,19 @@ run "custom_provider" {
   assert {
     condition     = local.settings.modelProviders.openai[0].envKey == "OPENROUTER_API_KEY"
     error_message = "settings should point at the configured API key env var"
+  }
+}
+
+run "disable_general_purpose_agent_permission" {
+  command = plan
+
+  variables {
+    agent_id                    = "test-agent-id"
+    allow_general_purpose_agent = false
+  }
+
+  assert {
+    condition     = !contains(local.settings.permissions.allow, "Agent(general-purpose)")
+    error_message = "general-purpose Agent permission should be optional"
   }
 }

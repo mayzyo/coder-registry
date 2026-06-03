@@ -91,6 +91,12 @@ variable "enable_coder_mcp" {
   default     = true
 }
 
+variable "allow_general_purpose_agent" {
+  description = "Whether to pre-allow Qwen Code's general-purpose Agent tool for unattended task execution."
+  type        = bool
+  default     = true
+}
+
 variable "task_prompt" {
   description = "Task prompt passed to Qwen Code headless mode."
   type        = string
@@ -100,7 +106,7 @@ variable "task_prompt" {
 variable "task_system_prompt" {
   description = "System instruction passed to Qwen Code headless mode."
   type        = string
-  default     = "You are Qwen Code running inside a Coder workspace. Use the coder_report_task tool to report meaningful task status updates to Coder when you start, make meaningful progress, become blocked, and finish. Inspect the repository first, make the smallest safe plan, preserve existing conventions, verify changes, and finish with a concise summary of changed files and checks run."
+  default     = "You are Qwen Code. Use the coder_report_task mcp tool to report what you are about to do and update task status, update status again with a sentence summary of what you did when you finish."
 }
 
 variable "install_qwen_code" {
@@ -158,6 +164,11 @@ variable "post_install_script" {
 }
 
 locals {
+  allowed_permissions = distinct(concat(
+    ["mcp__coder__coder_report_task"],
+    var.allow_general_purpose_agent ? ["Agent(general-purpose)"] : [],
+  ))
+
   qwen_settings = {
     "$version" = 4
     modelProviders = {
@@ -183,7 +194,7 @@ locals {
       usageStatisticsEnabled = false
     }
     permissions = {
-      allow = ["mcp__coder__coder_report_task"]
+      allow = local.allowed_permissions
     }
   }
 
@@ -217,7 +228,7 @@ locals {
         {
           allow = distinct(concat(
             try(local.base_settings.permissions.allow, []),
-            ["mcp__coder__coder_report_task"],
+            local.allowed_permissions,
           ))
         },
       )

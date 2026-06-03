@@ -34,7 +34,7 @@ resource "coder_ai_task" "qwen" {
 }
 ```
 
-By default, the module configures Coder MCP in Qwen Code settings, pre-allows Qwen to call `mcp__coder__coder_report_task`, disables Qwen telemetry and usage statistics in generated settings, and enables AgentAPI state persistence.
+By default, the module configures Coder MCP in Qwen Code settings, pre-allows Qwen to call `mcp__coder__coder_report_task` and `Agent(general-purpose)`, disables Qwen telemetry and usage statistics in generated settings, and enables AgentAPI state persistence.
 
 > [!NOTE]
 > This module is a task/runtime wrapper. Use `mayzyo/qwen-code` directly when you only need the Qwen Code CLI installed and configured.
