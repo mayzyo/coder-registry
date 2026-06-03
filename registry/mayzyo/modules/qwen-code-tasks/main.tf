@@ -192,7 +192,10 @@ locals {
     }
   }
 
-  base_settings = var.qwen_settings != null ? var.qwen_settings : local.qwen_settings
+  base_settings = merge(
+    { mcpServers = {} },
+    var.qwen_settings != null ? var.qwen_settings : local.qwen_settings,
+  )
   settings = var.enable_coder_mcp ? merge(
     local.base_settings,
     {
