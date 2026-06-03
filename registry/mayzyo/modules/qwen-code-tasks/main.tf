@@ -248,7 +248,6 @@ locals {
 
     AGENTAPI_PORT="$${2:-${var.agentapi_port}}"
     TASK_PROMPT=$(echo -n '${base64encode(var.task_prompt)}' | base64 -d)
-    TASK_SYSTEM_PROMPT=$(echo -n '${base64encode(var.task_system_prompt)}' | base64 -d)
 
     if [ -f "$HOME/.bashrc" ]; then
       source "$HOME/.bashrc"
