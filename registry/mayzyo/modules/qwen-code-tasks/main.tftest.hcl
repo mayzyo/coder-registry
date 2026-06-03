@@ -11,8 +11,18 @@ run "defaults" {
   }
 
   assert {
+    condition     = contains(local.settings.mcpServers.coder.args, "--allowed-tools") && contains(local.settings.mcpServers.coder.args, "coder_report_task")
+    error_message = "Coder MCP should expose coder_report_task for timeline reporting"
+  }
+
+  assert {
     condition     = local.settings.mcpServers.coder.env.CODER_MCP_APP_STATUS_SLUG == "qwen-code"
     error_message = "Coder MCP should target the default app slug"
+  }
+
+  assert {
+    condition     = local.settings.mcpServers.coder.env.CODER_MCP_ALLOWED_TOOLS == "coder_report_task"
+    error_message = "Coder MCP env should restrict allowed tools to coder_report_task"
   }
 
   assert {
@@ -33,6 +43,11 @@ run "defaults" {
   assert {
     condition     = strcontains(local.agentapi_start_script, "--system-prompt") && strcontains(local.agentapi_start_script, "--prompt")
     error_message = "start script should support Qwen Code headless task mode"
+  }
+
+  assert {
+    condition     = strcontains(var.task_system_prompt, "coder_report_task")
+    error_message = "default system prompt should instruct Qwen to report timeline updates"
   }
 }
 

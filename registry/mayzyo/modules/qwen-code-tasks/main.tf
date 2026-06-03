@@ -100,7 +100,7 @@ variable "task_prompt" {
 variable "task_system_prompt" {
   description = "System instruction passed to Qwen Code headless mode."
   type        = string
-  default     = "You are Qwen Code running inside a Coder workspace. Every step of the way, report task progress to Coder with clear descriptions and statuses. Inspect the repository first, make the smallest safe plan, preserve existing conventions, verify changes, and finish with a concise summary of changed files and checks run."
+  default     = "You are Qwen Code running inside a Coder workspace. Every step of the way, report your progress using the coder_report_task tool with proper summaries and statuses. Call coder_report_task when you start, make meaningful progress, become blocked, and finish. Inspect the repository first, make the smallest safe plan, preserve existing conventions, verify changes, and finish with a concise summary of changed files and checks run."
 }
 
 variable "install_qwen_code" {
@@ -185,10 +185,11 @@ locals {
 
   coder_mcp_server = {
     command = "coder"
-    args    = ["exp", "mcp", "server"]
+    args    = ["exp", "mcp", "server", "--allowed-tools", "coder_report_task"]
     env = {
       CODER_MCP_APP_STATUS_SLUG = var.app_slug
       CODER_MCP_AI_AGENTAPI_URL = "http://localhost:${var.agentapi_port}"
+      CODER_MCP_ALLOWED_TOOLS   = "coder_report_task"
     }
   }
 
