@@ -15,9 +15,9 @@ variable "agent_id" {
 }
 
 variable "icon" {
-  description = "The icon to use for the install script."
+  description = "The icon to use for the install script. Use a built-in Coder /icon path or a full URL."
   type        = string
-  default     = "/icon/qwen-code.svg"
+  default     = "https://raw.githubusercontent.com/coder/registry/main/registry/mayzyo/.images/qwen-code.svg"
 }
 
 variable "workdir" {
