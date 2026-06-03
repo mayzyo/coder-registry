@@ -45,7 +45,7 @@ resource "coder_app" "qwen" {
   agent_id     = coder_agent.main.id
   slug         = "qwen"
   display_name = "Qwen Code"
-  icon         = "https://raw.githubusercontent.com/coder/registry/main/registry/mayzyo/.images/qwen-code.svg"
+  icon         = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/qwen-code.svg"
   open_in      = "slim-window"
   command      = <<-EOT
     #!/bin/bash
