@@ -80,9 +80,18 @@ variable "qwen_base_url" {
 }
 
 variable "qwen_settings" {
-  description = "Optional complete Qwen Code settings object."
+  description = "Optional complete Qwen Code settings object. JSON strings are accepted for compatibility and decoded before use."
   type        = any
   default     = null
+
+  validation {
+    condition = (
+      var.qwen_settings == null ||
+      can(keys(var.qwen_settings)) ||
+      can(keys(jsondecode(tostring(var.qwen_settings))))
+    )
+    error_message = "qwen_settings must be an object or a JSON string containing an object."
+  }
 }
 
 variable "task_prompt" {
@@ -177,7 +186,13 @@ locals {
     }
   }
 
-  settings = var.qwen_settings != null ? var.qwen_settings : local.qwen_settings
+  qwen_settings_is_json_string = can(keys(jsondecode(tostring(var.qwen_settings))))
+  settings_json = (
+    var.qwen_settings == null ? jsonencode(local.qwen_settings) :
+    local.qwen_settings_is_json_string ? tostring(var.qwen_settings) :
+    jsonencode(var.qwen_settings)
+  )
+  settings = jsondecode(local.settings_json)
 
   agentapi_start_script = <<-EOT
     #!/bin/bash

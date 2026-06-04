@@ -16,7 +16,7 @@ data "coder_task" "me" {}
 module "qwen_code_tasks" {
   count   = data.coder_workspace.me.start_count
   source  = "registry.coder.com/mayzyo/qwen-code-tasks/coder"
-  version = "1.0.2"
+  version = "1.0.3"
 
   agent_id    = coder_agent.main.id
   workdir     = "/home/coder/project"

@@ -68,6 +68,71 @@ run "custom_provider" {
   }
 }
 
+run "custom_settings_object" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent-id"
+    qwen_settings = {
+      model = {
+        name = "custom-model"
+      }
+      telemetry = {
+        enabled = true
+      }
+    }
+  }
+
+  assert {
+    condition     = local.settings.model.name == "custom-model"
+    error_message = "custom settings object should be used as-is"
+  }
+
+  assert {
+    condition     = local.settings.telemetry.enabled == true
+    error_message = "custom settings object should preserve nested values"
+  }
+}
+
+run "custom_settings_json_string" {
+  command = plan
+
+  variables {
+    agent_id = "test-agent-id"
+    qwen_settings = jsonencode({
+      model = {
+        name = "json-model"
+      }
+      telemetry = {
+        enabled = true
+      }
+    })
+  }
+
+  assert {
+    condition     = local.settings.model.name == "json-model"
+    error_message = "custom settings JSON string should be decoded before use"
+  }
+
+  assert {
+    condition     = local.settings.telemetry.enabled == true
+    error_message = "custom settings JSON string should preserve nested values"
+  }
+}
+
+run "invalid_settings_string" {
+  command = plan
+
+  variables {
+    agent_id      = "test-agent-id"
+    qwen_settings = "not-json"
+  }
+
+  expect_failures = [
+    var.qwen_settings,
+  ]
+}
+
 run "custom_approval_mode" {
   command = plan
 
