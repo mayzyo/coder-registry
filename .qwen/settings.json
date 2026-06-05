@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Agent",
+      "Bash(which *)",
+      "Bash(find *)",
+      "Bash(rm *)",
+      "Bash(sed *)",
+      "Bash(grep *)",
+      "Bash(/test *)",
+      "Bash(cat *)"
+    ]
+  },
+  "$version": 4
+}
