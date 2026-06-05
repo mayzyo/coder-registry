@@ -87,17 +87,9 @@ function download_file() {
 }
 
 function install_codex_standalone() {
-  local install_dir="$${ARG_INSTALL_PATH}"
-  local version_flag=""
-
-  if [ -n "$${ARG_CODEX_VERSION}" ]; then
-    version_flag="--version $${ARG_CODEX_VERSION}"
-  fi
+  local version="$${ARG_CODEX_VERSION}"
 
   printf "%s Installing Codex CLI (standalone)\n" "$${BOLD}"
-
-  # Ensure install directory exists
-  mkdir -p "$${install_dir}"
 
   # Download and run the official install script
   local tmpdir
@@ -111,15 +103,15 @@ function install_codex_standalone() {
 
   chmod +x "$${tmpdir}/install.sh"
 
-  # Run the install script with appropriate flags
-  if [ -n "$${version_flag}" ]; then
-    "$${tmpdir}/install.sh" --install-dir "$${install_dir}" $${version_flag}
+  # Run the install script (installs to PATH by default)
+  if [ -n "$${version}" ] && [ "$${version}" != "latest" ]; then
+    "$${tmpdir}/install.sh" --version "$${version}"
   else
-    "$${tmpdir}/install.sh" --install-dir "$${install_dir}"
+    "$${tmpdir}/install.sh"
   fi
 
   rm -rf "$${tmpdir}"
-  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$$("$${install_dir}/codex" --version)"
+  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$$(codex --version)"
   ensure_codex_in_path
 }
 
