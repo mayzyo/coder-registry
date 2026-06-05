@@ -12,17 +12,51 @@ Install and configure the [Codex CLI](https://github.com/openai/codex) in your w
 
 ```tf
 module "codex" {
-  source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "5.0.0"
-  agent_id       = coder_agent.main.id
-  openai_api_key = var.openai_api_key
+  source    = "registry.coder.com/coder-labs/codex/coder"
+  version   = "6.1.0"
+  agent_id  = coder_agent.main.id
+  # provide openai_api_key for API key auth, or run `codex login` for OAuth
 }
 ```
 
 > [!WARNING]
-> If upgrading from v4.x.x of this module: v5 is a major refactor that drops support for [Coder Tasks](https://coder.com/docs/ai-coder/tasks) and [Boundary](https://coder.com/docs/ai-coder/agent-firewall). v5 also assumes npm is pre-installed; it no longer bootstraps Node.js. Keep using v4.x.x if you depend on them. See the [PR description](https://github.com/coder/registry/pull/879) for a full migration guide.
+> If upgrading from v4.x.x of this module: v5+ drops support for [Coder Tasks](https://coder.com/docs/ai-coder/tasks) and [Boundary](https://coder.com/docs/ai-coder/agent-firewall), and requires Node.js for npm installation. v6+ uses the standalone binary installer (no Node.js required) and hardcodes file-based auth storage.
+
+## Authentication
+
+The module supports both OAuth and API key authentication. Codex CLI automatically detects which method to use based on what's available:
+
+- **OAuth**: Run `codex login` in your workspace to authenticate. Credentials are stored in `~/.codex/auth.json`.
+- **API Key**: Provide the `openai_api_key` variable. The module pre-seeds `~/.codex/auth.json` with the API key.
+
+When both are available, Codex uses the API key. When neither is available, you'll need to run `codex login`.
+
+> [!NOTE]
+> When `enable_ai_gateway = true`, the module configures Codex to use AI Gateway for authentication. The `openai_api_key` variable cannot be used with AI Gateway.
 
 ## Examples
+
+### OAuth authentication
+
+```tf
+module "codex" {
+  source    = "registry.coder.com/coder-labs/codex/coder"
+  version   = "6.1.0"
+  agent_id  = coder_agent.main.id
+  # Run `codex login` in your workspace to authenticate
+}
+```
+
+### API Key authentication
+
+```tf
+module "codex" {
+  source         = "registry.coder.com/coder-labs/codex/coder"
+  version        = "6.1.0"
+  agent_id       = coder_agent.main.id
+  openai_api_key = var.openai_api_key
+}
+```
 
 ### Standalone mode with a launcher app
 
@@ -33,7 +67,7 @@ locals {
 
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "5.0.0"
+  version        = "6.1.0"
   agent_id       = coder_agent.main.id
   workdir        = local.codex_workdir
   openai_api_key = var.openai_api_key
@@ -64,7 +98,7 @@ resource "coder_app" "codex" {
 ```tf
 module "codex" {
   source            = "registry.coder.com/coder-labs/codex/coder"
-  version           = "5.0.0"
+  version           = "6.1.0"
   agent_id          = coder_agent.main.id
   workdir           = "/home/coder/project"
   enable_ai_gateway = true
@@ -73,8 +107,51 @@ module "codex" {
 
 When `enable_ai_gateway = true`, the module configures Codex to use the `aigateway` model provider in `config.toml` with the workspace owner's session token for authentication.
 
-> [!CAUTION]
-> `enable_ai_gateway = true` is mutually exclusive with `openai_api_key`. Setting both fails at plan time.
+### Usage with MCP Servers
+
+Codex CLI uses file-based credential storage (headless-friendly). Run `codex login` once to authenticate.
+
+```tf
+module "codex" {
+  source    = "registry.coder.com/coder-labs/codex/coder"
+  version   = "6.1.0"
+  agent_id  = coder_agent.main.id
+  workdir   = "/home/coder/project"
+
+  mcp = <<-EOT
+    [mcp_servers.GitHub]
+    command = "npx"
+    args = ["-y", "@modelcontextprotocol/server-github"]
+    type = "stdio"
+
+    [mcp_servers.Tavily]
+    command = "npx"
+    args = ["-y", "@tavily-ai/tavily-mcp"]
+    type = "stdio"
+  EOT
+}
+```
+
+**First-time setup:** Run `codex login` in your workspace. The device code flow works in headless environments—you'll be prompted to visit a URL and enter a code in your browser.
+
+**Credential storage (hardcoded):**
+- Main auth: `~/.codex/auth.json`
+- MCP OAuth: `~/.codex/mcp_oauth_credentials.json`
+
+## Configuration
+
+When no custom `base_config_toml` is provided, the module writes a minimal default config with file-based credential storage:
+
+```toml
+cli_auth_credentials_store = "file"
+mcp_oauth_credentials_store_mode = "file"
+```
+
+Codex CLI automatically detects the authentication method based on what's available:
+- If `auth.json` contains an API key, it uses API key authentication
+- Otherwise, it falls back to OAuth (run `codex login` to authenticate)
+
+For advanced options, see [Codex config docs](https://developers.openai.com/codex/config-advanced).
 
 > [!NOTE]
 > If you provide a custom `base_config_toml`, the module writes it verbatim and does not inject `model_provider = "aigateway"` automatically. Add it to your config yourself:
@@ -88,17 +165,17 @@ When `enable_ai_gateway = true`, the module configures Codex to use the `aigatew
 ```tf
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "5.0.0"
+  version        = "6.1.0"
   agent_id       = coder_agent.main.id
   workdir        = "/home/coder/project"
   openai_api_key = var.openai_api_key
 
   codex_version = "0.128.0"
+  install_path  = "$HOME/.local/bin"
 
   base_config_toml = <<-EOT
     sandbox_mode = "danger-full-access"
     approval_policy = "never"
-    preferred_auth_method = "apikey"
   EOT
 
   mcp = <<-EOT
@@ -117,7 +194,7 @@ The module exposes the `scripts` output: an ordered list of `coder exp sync` nam
 ```tf
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "5.0.0"
+  version        = "6.1.0"
   agent_id       = coder_agent.main.id
   openai_api_key = var.openai_api_key
 }
@@ -137,10 +214,6 @@ resource "coder_script" "post_codex" {
   EOT
 }
 ```
-
-## Configuration
-
-When no custom `base_config_toml` is provided, the module uses a minimal default with `preferred_auth_method = "apikey"`. For advanced options, see [Codex config docs](https://developers.openai.com/codex/config-advanced).
 
 ## Troubleshooting
 

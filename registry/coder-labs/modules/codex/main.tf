@@ -48,6 +48,12 @@ variable "install_codex" {
   default     = true
 }
 
+variable "install_path" {
+  description = "Directory where the standalone Codex binary will be installed."
+  type        = string
+  default     = "$HOME/.local/bin"
+}
+
 variable "codex_version" {
   type        = string
   description = "The version of Codex to install."
@@ -67,7 +73,8 @@ variable "base_config_toml" {
     Complete base TOML configuration for Codex (without mcp_servers section).
     When empty, the module generates a minimal default:
 
-      preferred_auth_method = "apikey"
+      cli_auth_credentials_store = "file"
+      mcp_oauth_credentials_store_mode = "file"
       # model_provider = "aigateway"           (sets the default profile, when enable_ai_gateway = true)
       # model_reasoning_effort = "<value>"    (sets the reasoning effort, when model_reasoning_effort is set)
 
@@ -136,11 +143,12 @@ locals {
 
   EOF
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
-    ARG_INSTALL                = tostring(var.install_codex)
-    ARG_CODEX_VERSION          = var.codex_version != "" ? base64encode(var.codex_version) : ""
-    ARG_WORKDIR                = local.workdir != "" ? base64encode(local.workdir) : ""
-    ARG_BASE_CONFIG_TOML       = var.base_config_toml != "" ? base64encode(var.base_config_toml) : ""
-    ARG_MCP                    = var.mcp != "" ? base64encode(var.mcp) : ""
+    ARG_INSTALL          = tostring(var.install_codex)
+    ARG_INSTALL_PATH     = base64encode(var.install_path)
+    ARG_CODEX_VERSION    = var.codex_version != "" ? base64encode(var.codex_version) : ""
+    ARG_WORKDIR          = local.workdir != "" ? base64encode(local.workdir) : ""
+    ARG_BASE_CONFIG_TOML = var.base_config_toml != "" ? base64encode(var.base_config_toml) : ""
+    ARG_MCP              = var.mcp != "" ? base64encode(var.mcp) : ""
     ARG_ENABLE_AI_GATEWAY      = tostring(var.enable_ai_gateway)
     ARG_AIBRIDGE_CONFIG        = var.enable_ai_gateway ? base64encode(local.aibridge_config) : ""
     ARG_MODEL_REASONING_EFFORT = var.model_reasoning_effort

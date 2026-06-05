@@ -9,6 +9,7 @@ command_exists() {
 }
 
 ARG_INSTALL='${ARG_INSTALL}'
+ARG_INSTALL_PATH=$(echo -n '${ARG_INSTALL_PATH}' | base64 -d)
 ARG_CODEX_VERSION=$(echo -n '${ARG_CODEX_VERSION}' | base64 -d)
 ARG_WORKDIR=$(echo -n '${ARG_WORKDIR}' | base64 -d)
 ARG_BASE_CONFIG_TOML=$(echo -n '${ARG_BASE_CONFIG_TOML}' | base64 -d)
@@ -51,8 +52,8 @@ function ensure_codex_in_path() {
   local CODEX_BIN=""
   if command -v codex > /dev/null 2>&1; then
     CODEX_BIN=$(command -v codex)
-  elif [ -x "$HOME/.npm-global/bin/codex" ]; then
-    CODEX_BIN="$HOME/.npm-global/bin/codex"
+  elif [ -x "$${ARG_INSTALL_PATH}/codex" ]; then
+    CODEX_BIN="$${ARG_INSTALL_PATH}/codex"
   fi
 
   if [ -z "$${CODEX_BIN}" ] || [ ! -x "$${CODEX_BIN}" ]; then
@@ -71,43 +72,54 @@ function ensure_codex_in_path() {
   add_path_to_shell_profiles "$${CODEX_DIR}"
 }
 
-function install_codex() {
-  if [ "$${ARG_INSTALL}" != "true" ]; then
-    echo "Skipping Codex installation as per configuration."
-    ensure_codex_in_path
-    return
-  fi
+function download_file() {
+  local url="$1"
+  local dest="$2"
 
-  if [ -s "$HOME/.nvm/nvm.sh" ]; then
-    export NVM_DIR="$HOME/.nvm"
-    . "$NVM_DIR/nvm.sh"
-  fi
-
-  # Detect a package manager for global installs.
-  if command_exists npm; then
-    PKG_INSTALL="npm install -g"
-    if ! command_exists nvm; then
-      mkdir -p "$HOME/.npm-global"
-      npm config set prefix "$HOME/.npm-global"
-      export PATH="$HOME/.npm-global/bin:$PATH"
-    fi
-  elif command_exists pnpm; then
-    PKG_INSTALL="pnpm add -g"
-  elif command_exists bun; then
-    PKG_INSTALL="bun add -g"
+  if command -v curl > /dev/null 2>&1; then
+    curl -sSLf -o "$${dest}" "$${url}"
+  elif command -v wget > /dev/null 2>&1; then
+    wget -q -O "$${dest}" "$${url}"
   else
-    echo "Error: npm, pnpm, or bun is required to install Codex. Install one of them first or set install_codex = false."
-    exit 1
+    echo "Error: curl or wget is required to download files."
+    return 1
   fi
+}
 
-  printf "%s Installing Codex CLI\n" "$${BOLD}"
+function install_codex_standalone() {
+  local install_dir="$${ARG_INSTALL_PATH}"
+  local version_flag=""
 
   if [ -n "$${ARG_CODEX_VERSION}" ]; then
-    $PKG_INSTALL "@openai/codex@$${ARG_CODEX_VERSION}"
-  else
-    $PKG_INSTALL "@openai/codex"
+    version_flag="--version $${ARG_CODEX_VERSION}"
   fi
-  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$(codex --version)"
+
+  printf "%s Installing Codex CLI (standalone)\n" "$${BOLD}"
+
+  # Ensure install directory exists
+  mkdir -p "$${install_dir}"
+
+  # Download and run the official install script
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  if ! download_file "https://github.com/openai/codex/releases/latest/download/install.sh" "$${tmpdir}/install.sh"; then
+    echo "Error: Failed to download Codex installer."
+    rm -rf "$${tmpdir}"
+    return 1
+  fi
+
+  chmod +x "$${tmpdir}/install.sh"
+
+  # Run the install script with appropriate flags
+  if [ -n "$${version_flag}" ]; then
+    "$${tmpdir}/install.sh" --install-dir "$${install_dir}" $${version_flag}
+  else
+    "$${tmpdir}/install.sh" --install-dir "$${install_dir}"
+  fi
+
+  rm -rf "$${tmpdir}"
+  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$$("$${install_dir}/codex" --version)"
   ensure_codex_in_path
 }
 
@@ -124,7 +136,8 @@ function write_minimal_default_config() {
   fi
 
   cat << EOF > "$${config_path}"
-preferred_auth_method = "apikey"
+cli_auth_credentials_store = "file"
+mcp_oauth_credentials_store_mode = "file"
 $${optional_config}
 
 EOF
@@ -186,10 +199,16 @@ function add_auth_json() {
   "OPENAI_API_KEY": "$${ARG_OPENAI_API_KEY}"
 }
 EOF
+  chmod 600 "$${auth_path}"
   echo "Seeded auth.json with API key"
 }
 
-install_codex
+if [ "$${ARG_INSTALL}" = "true" ]; then
+  install_codex_standalone
+else
+  echo "Skipping Codex installation as per configuration."
+  ensure_codex_in_path
+fi
 populate_config_toml
 setup_workdir
 add_auth_json

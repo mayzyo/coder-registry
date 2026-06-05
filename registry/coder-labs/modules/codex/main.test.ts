@@ -219,7 +219,6 @@ describe("codex", async () => {
     const baseConfig = [
       'sandbox_mode = "danger-full-access"',
       'approval_policy = "never"',
-      'preferred_auth_method = "apikey"',
       "",
       "[custom_section]",
       "new_feature = true",
@@ -232,7 +231,6 @@ describe("codex", async () => {
     await runScripts(id, scripts);
     const resp = await readFileContainer(id, "/home/coder/.codex/config.toml");
     expect(resp).toContain('sandbox_mode = "danger-full-access"');
-    expect(resp).toContain('preferred_auth_method = "apikey"');
     expect(resp).toContain("[custom_section]");
   });
 
@@ -259,7 +257,9 @@ describe("codex", async () => {
     const { id, scripts } = await setup();
     await runScripts(id, scripts);
     const resp = await readFileContainer(id, "/home/coder/.codex/config.toml");
-    expect(resp).toContain('preferred_auth_method = "apikey"');
+    expect(resp).toContain('cli_auth_credentials_store = "file"');
+    expect(resp).toContain('mcp_oauth_credentials_store_mode = "file"');
+    expect(resp).not.toContain("preferred_auth_method");
     expect(resp).not.toContain("model_provider");
     expect(resp).not.toContain("[model_providers.");
     expect(resp).not.toContain("model_reasoning_effort");
@@ -428,7 +428,6 @@ describe("codex", async () => {
   test("custom-config-drops-reasoning-effort", async () => {
     const baseConfig = [
       'sandbox_mode = "danger-full-access"',
-      'preferred_auth_method = "apikey"',
     ].join("\n");
     const { id, scripts } = await setup({
       moduleVariables: {
@@ -443,5 +442,27 @@ describe("codex", async () => {
     );
     expect(configToml).toContain('sandbox_mode = "danger-full-access"');
     expect(configToml).not.toContain("model_reasoning_effort");
+  });
+
+  test("auth-method-apikey", async () => {
+    const apiKey = "test-api-key-apikey-mode";
+    const { id, coderEnvVars, scripts } = await setup({
+      moduleVariables: {
+        openai_api_key: apiKey,
+      },
+    });
+    expect(coderEnvVars["OPENAI_API_KEY"]).toBe(apiKey);
+    await runScripts(id, scripts, coderEnvVars);
+    const configToml = await readFileContainer(
+      id,
+      "/home/coder/.codex/config.toml",
+    );
+    expect(configToml).not.toContain("preferred_auth_method");
+    const authJson = await readFileContainer(
+      id,
+      "/home/coder/.codex/auth.json",
+    );
+    expect(authJson).toContain('"auth_mode": "apikey"');
+    expect(authJson).toContain(apiKey);
   });
 });

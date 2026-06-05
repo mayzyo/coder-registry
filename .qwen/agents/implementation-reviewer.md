@@ -1,6 +1,6 @@
 ---
 name: implementation-reviewer
-description: MUST BE USED after step-implementer completes non-trivial code changes. Reviews correctness, security, maintainability, test coverage, and adherence to the planner-designer plan. Does not edit files.
+description: MUST BE USED after planned implementation completes non-trivial code changes. Reviews correctness, security, maintainability, test coverage, and adherence to the planner-designer plan. Does not edit files.
 model: kimi-k2.6
 approvalMode: plan
 tools:
