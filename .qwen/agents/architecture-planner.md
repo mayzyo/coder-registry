@@ -1,7 +1,7 @@
 ---
 name: architecture-planner
 description: MUST BE USED before implementation for complex, ambiguous, architectural, multi-file, risky, or design-heavy coding tasks. Produces an implementation-ready plan, file map, design decisions, sequencing, risks, and acceptance criteria. Does not edit files.
-model: qwen3.7-max
+model: kimi-k2.6
 approvalMode: plan
 tools:
   - read_file

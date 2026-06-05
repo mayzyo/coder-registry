@@ -1,7 +1,7 @@
 ---
 name: implementation-executor
 description: MUST BE USED after architecture-planner has produced a plan. Implements approved plans step by step, edits files, runs focused verification, fixes directly related failures, and reports exact changes. Does not redesign architecture.
-model: qwen-3-coder-next
+model: qwen-3.5-122b
 approvalMode: auto-edit
 tools:
   - read_file

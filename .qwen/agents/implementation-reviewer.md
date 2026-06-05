@@ -1,7 +1,7 @@
 ---
 name: implementation-reviewer
 description: MUST BE USED after step-implementer completes non-trivial code changes. Reviews correctness, security, maintainability, test coverage, and adherence to the planner-designer plan. Does not edit files.
-model: qwen3.7-max
+model: kimi-k2.6
 approvalMode: plan
 tools:
   - read_file
