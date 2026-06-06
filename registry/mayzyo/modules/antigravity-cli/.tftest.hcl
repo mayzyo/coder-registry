@@ -29,6 +29,11 @@ run "defaults" {
     condition     = var.antigravity_binary_path == "$HOME/.local/bin"
     error_message = "antigravity_binary_path should default to the official installer path."
   }
+
+  assert {
+    condition     = !strcontains(local.install_script, "--skip-path")
+    error_message = "install script should not pass unsupported flags to the official installer."
+  }
 }
 
 run "custom_workdir" {

@@ -70,7 +70,7 @@ install_antigravity_cli() {
   fi
 
   echo "Installing Antigravity CLI via official installer"
-  curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --skip-path
+  curl -fsSL https://antigravity.google/cli/install.sh | bash
   ensure_antigravity_in_path
   echo "Installed Antigravity CLI successfully. Version: $(agy --version || echo 'unknown')"
 }
