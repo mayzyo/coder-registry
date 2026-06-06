@@ -13,7 +13,7 @@ Install and configure [Antigravity CLI](https://antigravity.google/docs/cli-over
 ```tf
 module "antigravity-cli" {
   source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
-  version  = "0.1.1"
+  version  = "0.1.2"
   agent_id = coder_agent.main.id
 }
 ```
@@ -34,7 +34,7 @@ locals {
 
 module "antigravity-cli" {
   source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
-  version  = "0.1.1"
+  version  = "0.1.2"
   agent_id = coder_agent.main.id
   workdir  = local.antigravity_workdir
 }
@@ -61,7 +61,7 @@ Provide a JSON-encoded MCP configuration to write `~/.gemini/antigravity-cli/mcp
 ```tf
 module "antigravity-cli" {
   source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
-  version  = "0.1.1"
+  version  = "0.1.2"
   agent_id = coder_agent.main.id
 
   mcp = jsonencode({
@@ -88,7 +88,7 @@ For advanced preferences, pass a settings object. The module always sets `enable
 ```tf
 module "antigravity-cli" {
   source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
-  version  = "0.1.1"
+  version  = "0.1.2"
   agent_id = coder_agent.main.id
 
   enable_terminal_sandbox = true

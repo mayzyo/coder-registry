@@ -34,6 +34,11 @@ run "defaults" {
     condition     = !strcontains(local.install_script, "--skip-path")
     error_message = "install script should not pass unsupported flags to the official installer."
   }
+
+  assert {
+    condition     = strcontains(local.install_script, "Antigravity CLI is already installed. Skipping official installer.")
+    error_message = "install script should skip the official installer when agy already exists."
+  }
 }
 
 run "custom_workdir" {

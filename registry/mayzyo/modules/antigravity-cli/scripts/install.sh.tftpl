@@ -69,6 +69,13 @@ install_antigravity_cli() {
     return
   fi
 
+  if command_exists agy || [ -x "$${ARG_ANTIGRAVITY_BINARY_PATH}/agy" ] || [ -x "$HOME/.local/bin/agy" ]; then
+    echo "Antigravity CLI is already installed. Skipping official installer."
+    ensure_antigravity_in_path
+    echo "Antigravity CLI version: $(agy --version || echo 'unknown')"
+    return
+  fi
+
   echo "Installing Antigravity CLI via official installer"
   curl -fsSL https://antigravity.google/cli/install.sh | bash
   ensure_antigravity_in_path
