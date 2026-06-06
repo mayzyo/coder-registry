@@ -17,7 +17,7 @@ variable "agent_id" {
 variable "icon" {
   description = "The icon to use for the install script. Use a built-in Coder /icon path or a full URL."
   type        = string
-  default     = "/icon/antigravity.svg"
+  default     = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/antigravity-cli.svg"
 }
 
 variable "workdir" {

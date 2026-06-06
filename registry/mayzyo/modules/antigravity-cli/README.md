@@ -1,7 +1,7 @@
 ---
 display_name: Antigravity CLI
 description: Install and configure Google's Antigravity CLI (agy) in your workspace.
-icon: ../../../../.icons/antigravity.svg
+icon: ../../.images/antigravity-cli.svg
 verified: false
 tags: [agent, ai, antigravity, cli]
 ---
@@ -43,7 +43,7 @@ resource "coder_app" "antigravity_cli" {
   agent_id     = coder_agent.main.id
   slug         = "antigravity-cli"
   display_name = "Antigravity CLI"
-  icon         = "/icon/antigravity.svg"
+  icon         = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/antigravity-cli.svg"
   open_in      = "slim-window"
   command      = <<-EOT
     #!/bin/bash
