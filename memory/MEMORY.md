@@ -1,0 +1,1 @@
+- [antigravity-cli-module](project/antigravity-cli-module.md) — New module at registry/mayzyo/modules/antigravity-cli/ for installing Google's Antigravity CLI (agy)

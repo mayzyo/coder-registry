@@ -1,0 +1,100 @@
+#!/bin/bash
+set -euo pipefail
+
+command_exists() {
+  command -v "$1" > /dev/null 2>&1
+}
+
+ARG_INSTALL_ANTIGRAVITY='${ARG_INSTALL_ANTIGRAVITY}'
+ARG_ANTIGRAVITY_BINARY_PATH=$(echo -n '${ARG_ANTIGRAVITY_BINARY_PATH}' | base64 -d)
+ARG_ANTIGRAVITY_BINARY_PATH="$${ARG_ANTIGRAVITY_BINARY_PATH/#\~/$HOME}"
+ARG_ANTIGRAVITY_BINARY_PATH="$${ARG_ANTIGRAVITY_BINARY_PATH//\$HOME/$HOME}"
+ARG_WORKDIR=$(echo -n '${ARG_WORKDIR}' | base64 -d)
+ARG_SETTINGS_JSON=$(echo -n '${ARG_SETTINGS_JSON}' | base64 -d)
+ARG_MCP=$(echo -n '${ARG_MCP}' | base64 -d)
+
+export PATH="$${ARG_ANTIGRAVITY_BINARY_PATH}:$PATH"
+
+SETTINGS_DIR="$HOME/.gemini/antigravity-cli"
+SETTINGS_FILE="$${SETTINGS_DIR}/settings.json"
+MCP_CONFIG_FILE="$${SETTINGS_DIR}/mcp_config.json"
+
+add_path_to_shell_profiles() {
+  local path_dir="$1"
+
+  for profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.zshrc"; do
+    if [ -f "$${profile}" ] && ! grep -Fq "$${path_dir}" "$${profile}" 2> /dev/null; then
+      printf 'export PATH="$PATH:%s"\n' "$${path_dir}" >> "$${profile}"
+      echo "Added $${path_dir} to $${profile}"
+    fi
+  done
+
+  local fish_config="$HOME/.config/fish/config.fish"
+  if [ -f "$${fish_config}" ] && ! grep -Fq "$${path_dir}" "$${fish_config}" 2> /dev/null; then
+    echo "fish_add_path $${path_dir}" >> "$${fish_config}"
+    echo "Added $${path_dir} to $${fish_config}"
+  fi
+}
+
+ensure_antigravity_in_path() {
+  local agy_bin=""
+  if command_exists agy; then
+    agy_bin=$(command -v agy)
+  elif [ -x "$${ARG_ANTIGRAVITY_BINARY_PATH}/agy" ]; then
+    agy_bin="$${ARG_ANTIGRAVITY_BINARY_PATH}/agy"
+  elif [ -x "$HOME/.local/bin/agy" ]; then
+    agy_bin="$HOME/.local/bin/agy"
+  fi
+
+  if [ -z "$${agy_bin}" ] || [ ! -x "$${agy_bin}" ]; then
+    echo "Error: Could not find agy binary"
+    exit 1
+  fi
+
+  local agy_dir
+  agy_dir=$(dirname "$${agy_bin}")
+
+  if [ -n "$${CODER_SCRIPT_BIN_DIR:-}" ] && [ ! -e "$${CODER_SCRIPT_BIN_DIR}/agy" ]; then
+    ln -s "$${agy_bin}" "$${CODER_SCRIPT_BIN_DIR}/agy"
+    echo "Created symlink: $${CODER_SCRIPT_BIN_DIR}/agy -> $${agy_bin}"
+  fi
+
+  add_path_to_shell_profiles "$${agy_dir}"
+}
+
+install_antigravity_cli() {
+  if [ "$${ARG_INSTALL_ANTIGRAVITY}" != "true" ]; then
+    echo "Skipping Antigravity CLI installation."
+    ensure_antigravity_in_path
+    return
+  fi
+
+  echo "Installing Antigravity CLI via official installer"
+  curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --skip-path
+  ensure_antigravity_in_path
+  echo "Installed Antigravity CLI successfully. Version: $(agy --version || echo 'unknown')"
+}
+
+configure_antigravity_cli() {
+  mkdir -p "$${SETTINGS_DIR}"
+
+  if [ -n "$${ARG_WORKDIR}" ]; then
+    mkdir -p "$${ARG_WORKDIR}"
+    echo "Prepared Antigravity CLI workdir: $${ARG_WORKDIR}"
+  fi
+
+  if [ -n "$${ARG_SETTINGS_JSON}" ]; then
+    echo "$${ARG_SETTINGS_JSON}" > "$${SETTINGS_FILE}"
+    chmod 600 "$${SETTINGS_FILE}"
+    echo "Wrote Antigravity CLI settings to $${SETTINGS_FILE}"
+  fi
+
+  if [ -n "$${ARG_MCP}" ] && [ "$${ARG_MCP}" != "{}" ]; then
+    echo "$${ARG_MCP}" > "$${MCP_CONFIG_FILE}"
+    chmod 600 "$${MCP_CONFIG_FILE}"
+    echo "Wrote Antigravity CLI MCP config to $${MCP_CONFIG_FILE}"
+  fi
+}
+
+install_antigravity_cli
+configure_antigravity_cli
