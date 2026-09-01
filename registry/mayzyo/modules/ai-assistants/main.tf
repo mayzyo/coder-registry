@@ -104,7 +104,8 @@ locals {
 # --- Codex CLI ---
 module "codex" {
   count    = data.coder_parameter.run_codex.value ? data.coder_workspace.me.start_count : 0
-  source   = "git::https://github.com/mayzyo/coder-registry.git//registry/coder-labs/modules/codex"
+  source   = "registry.coder.com/coder-labs/codex/coder"
+  version  = "5.3.2"
   agent_id = var.agent_id
   workdir  = var.workdir
 }
@@ -127,7 +128,7 @@ resource "coder_app" "codex" {
 module "claude_code" {
   count             = data.coder_parameter.run_claude_code.value ? data.coder_workspace.me.start_count : 0
   source            = "registry.coder.com/coder/claude-code/coder"
-  version           = "5.2.0"
+  version           = "5.4.1"
   agent_id          = var.agent_id
   workdir           = var.workdir
   anthropic_api_key = var.anthropic_api_key
