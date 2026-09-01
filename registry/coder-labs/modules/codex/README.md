@@ -12,51 +12,17 @@ Install and configure the [Codex CLI](https://github.com/openai/codex) in your w
 
 ```tf
 module "codex" {
-  source    = "registry.coder.com/coder-labs/codex/coder"
-  version   = "6.1.0"
-  agent_id  = coder_agent.main.id
-  # provide openai_api_key for API key auth, or run `codex login` for OAuth
-}
-```
-
-> [!WARNING]
-> If upgrading from v4.x.x of this module: v5+ drops support for [Coder Tasks](https://coder.com/docs/ai-coder/tasks) and [Boundary](https://coder.com/docs/ai-coder/agent-firewall), and requires Node.js for npm installation. v6+ uses the standalone binary installer (no Node.js required) and hardcodes file-based auth storage.
-
-## Authentication
-
-The module supports both OAuth and API key authentication. Codex CLI automatically detects which method to use based on what's available:
-
-- **OAuth**: Run `codex login` in your workspace to authenticate. Credentials are stored in `~/.codex/auth.json`.
-- **API Key**: Provide the `openai_api_key` variable. The module pre-seeds `~/.codex/auth.json` with the API key.
-
-When both are available, Codex uses the API key. When neither is available, you'll need to run `codex login`.
-
-> [!NOTE]
-> When `enable_ai_gateway = true`, the module configures Codex to use AI Gateway for authentication. The `openai_api_key` variable cannot be used with AI Gateway.
-
-## Examples
-
-### OAuth authentication
-
-```tf
-module "codex" {
-  source    = "registry.coder.com/coder-labs/codex/coder"
-  version   = "6.1.0"
-  agent_id  = coder_agent.main.id
-  # Run `codex login` in your workspace to authenticate
-}
-```
-
-### API Key authentication
-
-```tf
-module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "6.1.0"
+  version        = "5.3.2"
   agent_id       = coder_agent.main.id
   openai_api_key = var.openai_api_key
 }
 ```
+
+> [!WARNING]
+> If upgrading from v4.x.x of this module: v5 is a major refactor that drops support for Coder Tasks and [Boundary](https://coder.com/docs/ai-coder/agent-firewall). Keep using v4.x.x if you depend on them. See the [PR description](https://github.com/coder/registry/pull/879) for a full migration guide.
+
+## Examples
 
 ### Standalone mode with a launcher app
 
@@ -67,7 +33,7 @@ locals {
 
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "6.1.0"
+  version        = "5.3.2"
   agent_id       = coder_agent.main.id
   workdir        = local.codex_workdir
   openai_api_key = var.openai_api_key
@@ -98,7 +64,7 @@ resource "coder_app" "codex" {
 ```tf
 module "codex" {
   source            = "registry.coder.com/coder-labs/codex/coder"
-  version           = "6.1.0"
+  version           = "5.3.2"
   agent_id          = coder_agent.main.id
   workdir           = "/home/coder/project"
   enable_ai_gateway = true
@@ -107,51 +73,8 @@ module "codex" {
 
 When `enable_ai_gateway = true`, the module configures Codex to use the `aigateway` model provider in `config.toml` with the workspace owner's session token for authentication.
 
-### Usage with MCP Servers
-
-Codex CLI uses file-based credential storage (headless-friendly). Run `codex login` once to authenticate.
-
-```tf
-module "codex" {
-  source    = "registry.coder.com/coder-labs/codex/coder"
-  version   = "6.1.0"
-  agent_id  = coder_agent.main.id
-  workdir   = "/home/coder/project"
-
-  mcp = <<-EOT
-    [mcp_servers.GitHub]
-    command = "npx"
-    args = ["-y", "@modelcontextprotocol/server-github"]
-    type = "stdio"
-
-    [mcp_servers.Tavily]
-    command = "npx"
-    args = ["-y", "@tavily-ai/tavily-mcp"]
-    type = "stdio"
-  EOT
-}
-```
-
-**First-time setup:** Run `codex login` in your workspace. The device code flow works in headless environments—you'll be prompted to visit a URL and enter a code in your browser.
-
-**Credential storage (hardcoded):**
-- Main auth: `~/.codex/auth.json`
-- MCP OAuth: `~/.codex/mcp_oauth_credentials.json`
-
-## Configuration
-
-When no custom `base_config_toml` is provided, the module writes a minimal default config with file-based credential storage:
-
-```toml
-cli_auth_credentials_store = "file"
-mcp_oauth_credentials_store_mode = "file"
-```
-
-Codex CLI automatically detects the authentication method based on what's available:
-- If `auth.json` contains an API key, it uses API key authentication
-- Otherwise, it falls back to OAuth (run `codex login` to authenticate)
-
-For advanced options, see [Codex config docs](https://developers.openai.com/codex/config-advanced).
+> [!CAUTION]
+> `enable_ai_gateway = true` is mutually exclusive with `openai_api_key`. Setting both fails at plan time.
 
 > [!NOTE]
 > If you provide a custom `base_config_toml`, the module writes it verbatim and does not inject `model_provider = "aigateway"` automatically. Add it to your config yourself:
@@ -165,17 +88,17 @@ For advanced options, see [Codex config docs](https://developers.openai.com/code
 ```tf
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "6.1.0"
+  version        = "5.3.2"
   agent_id       = coder_agent.main.id
   workdir        = "/home/coder/project"
   openai_api_key = var.openai_api_key
 
   codex_version = "0.128.0"
-  install_path  = "$HOME/.local/bin"
 
   base_config_toml = <<-EOT
     sandbox_mode = "danger-full-access"
     approval_policy = "never"
+    preferred_auth_method = "apikey"
   EOT
 
   mcp = <<-EOT
@@ -184,8 +107,25 @@ module "codex" {
     args = ["-y", "@modelcontextprotocol/server-github"]
     type = "stdio"
   EOT
+
+  mcp_config_remote_path = [
+    "https://example.com/team-mcp-servers.toml",
+    "https://raw.githubusercontent.com/your-org/your-repo/main/.codex/mcp.toml",
+  ]
 }
 ```
+
+> [!NOTE]
+> Servers configured through `mcp` or `mcp_config_remote_path` are appended to `~/.codex/config.toml`, so they apply to every Codex session in the workspace. Each remote URL should return a body in Codex's native TOML format, e.g.:
+>
+> ```toml
+> [mcp_servers.my-tool]
+> command = "my-tool-server"
+> args = ["--port", "8080"]
+> type = "stdio"
+> ```
+>
+> Fetch failures (network errors or non-2xx responses) log a warning and the install continues with the remaining URLs. Bodies are appended verbatim without further validation, so make sure the URL returns valid Codex TOML.
 
 ### Serialize a downstream `coder_script` after the install pipeline
 
@@ -194,7 +134,7 @@ The module exposes the `scripts` output: an ordered list of `coder exp sync` nam
 ```tf
 module "codex" {
   source         = "registry.coder.com/coder-labs/codex/coder"
-  version        = "6.1.0"
+  version        = "5.3.2"
   agent_id       = coder_agent.main.id
   openai_api_key = var.openai_api_key
 }
@@ -214,6 +154,36 @@ resource "coder_script" "post_codex" {
   EOT
 }
 ```
+
+## Configuration
+
+When no custom `base_config_toml` is provided, the module uses a minimal default with `preferred_auth_method = "apikey"`. For advanced options, see [Codex config docs](https://developers.openai.com/codex/config-advanced).
+
+When `openai_api_key` is set, the module authenticates with `codex login --with-api-key` over standard input. The key remains in the `OPENAI_API_KEY` workspace environment variable and is not rendered into the install script or written to `auth.json` by the module.
+
+If `install_codex = false`, a working `codex` executable must already be available on `PATH`. Workspace startup fails if the binary is missing or `codex --version` cannot run.
+
+> [!NOTE]
+> Content you add outside the managed block is preserved across workspace restarts. The module structures the file as:
+>
+> ```toml
+> # bare keys you add above the managed block (root scope)
+> my_flag = true
+>
+> # >>> coder-managed: codex module >>>
+> preferred_auth_method = "apikey"
+> # ... module-managed content ...
+> # <<< coder-managed: codex module <<<
+>
+> # [sections] you add below the managed block
+> [mcp_servers.my_tool]
+> command = "my-tool"
+> ```
+>
+> Two constraints to keep the TOML valid:
+>
+> - Bare keys you place **above** the managed block must not duplicate keys already inside it (duplicate keys are a TOML error).
+> - `[section]` headers you place **below** the managed block must not duplicate a table name already defined inside it (same reason). Bare keys placed after the managed block will fall under whatever `[section]` preceded them — place bare keys above the block to keep them at root scope.
 
 ## Troubleshooting
 

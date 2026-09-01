@@ -166,7 +166,7 @@ If a script sources external files (`$HOME/.bashrc`, `/etc/bashrc`, `/etc/os-rel
 
 ### `scripts/` directory + `file()` (complex modules)
 
-Separate `scripts/install.sh` and `scripts/start.sh` loaded via `file()` into `locals`, then passed to a child module or encoded inline. Used by `coder/claude-code`, `coder-labs/copilot`, `coder-labs/codex`, `coder-labs/cursor-cli`, `coder/amazon-q` for example.
+Separate `scripts/install.sh` and `scripts/start.sh` loaded via `file()` into `locals`, then passed to a child module or encoded inline. Used by `coder/claude-code`, `coder-labs/copilot`, `coder-labs/codex`, `coder-labs/cursor-cli` for example.
 
 ```tf
 locals {
@@ -175,7 +175,7 @@ locals {
 }
 ```
 
-Use `file()` when scripts don't need Terraform variable interpolation. For config templates, use a `templates/` directory with `templatefile()` (e.g. `coder/amazon-q/templates/agent-config.json.tpl`).
+Use `file()` when scripts don't need Terraform variable interpolation. For config templates, use a `templates/` directory with `templatefile()` (e.g. `templates/agent-config.json.tpl`).
 
 ### Inline heredoc (minimal modules)
 
@@ -329,12 +329,12 @@ Cleanup of `*.tfstate` files and `modules-test` Docker containers is handled aut
 | Task             | Command                                               | Scope      |
 | ---------------- | ----------------------------------------------------- | ---------- |
 | Format all       | `bun run fmt`                                         | Repo       |
-| Terraform tests  | `bun run tftest`                                      | Repo       |
-| TypeScript tests | `bun run tstest`                                      | Repo       |
+| Terraform tests  | `bun run check:terraform`                             | Repo       |
+| TypeScript tests | `bun run check:typescript`                            | Repo       |
 | Single TF test   | `terraform init -upgrade && terraform test -verbose`  | Module dir |
 | Single TS test   | `bun test main.test.ts`                               | Module dir |
 | Validate         | `./scripts/terraform_validate.sh`                     | Repo       |
-| ShellCheck       | `bun run shellcheck`                                  | Repo       |
+| ShellCheck       | `bun run check:shellcheck`                            | Repo       |
 | Version bump     | `.github/scripts/version-bump.sh patch\|minor\|major` | Repo       |
 
 ## Version Management
@@ -351,9 +351,9 @@ The script automatically updates `version` references in README usage examples.
 
 Before considering the work complete, verify:
 
-- Tests pass: `bun run tftest` and `bun run tstest`
+- Tests pass: `bun run check:terraform` and `bun run check:typescript` (or `bun check` to run everything)
 - `bun run fmt` has been run
-- `bun run shellcheck` passes if the module includes shell scripts
+- `bun run check:shellcheck` passes if the module includes shell scripts
 - New variables have sensible defaults for backward compatibility
 - Breaking changes are documented if any inputs were removed, defaults changed, or new required variables added
 - Shell scripts handle errors gracefully (`|| echo "Warning..."` for non-fatal failures)

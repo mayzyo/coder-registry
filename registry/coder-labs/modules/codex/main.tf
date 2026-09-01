@@ -48,12 +48,6 @@ variable "install_codex" {
   default     = true
 }
 
-variable "install_path" {
-  description = "Directory where the standalone Codex binary will be installed."
-  type        = string
-  default     = "$HOME/.local/bin"
-}
-
 variable "codex_version" {
   type        = string
   description = "The version of Codex to install."
@@ -73,8 +67,7 @@ variable "base_config_toml" {
     Complete base TOML configuration for Codex (without mcp_servers section).
     When empty, the module generates a minimal default:
 
-      cli_auth_credentials_store = "file"
-      mcp_oauth_credentials_store_mode = "file"
+      preferred_auth_method = "apikey"
       # model_provider = "aigateway"           (sets the default profile, when enable_ai_gateway = true)
       # model_reasoning_effort = "<value>"    (sets the reasoning effort, when model_reasoning_effort is set)
 
@@ -93,6 +86,12 @@ variable "mcp" {
   type        = string
   description = "MCP server configurations in TOML format. When set, servers are appended to the Codex config.toml."
   default     = ""
+}
+
+variable "mcp_config_remote_path" {
+  type        = list(string)
+  description = "List of URLs that return MCP server configurations in TOML format (matching Codex's native config format). Fetched at install time and appended to config.toml."
+  default     = []
 }
 
 variable "model_reasoning_effort" {
@@ -128,7 +127,7 @@ resource "coder_env" "openai_api_key" {
 resource "coder_env" "ai_gateway_session_token" {
   count    = var.enable_ai_gateway ? 1 : 0
   agent_id = var.agent_id
-  name     = "CODER_AIBRIDGE_SESSION_TOKEN"
+  name     = "OPENAI_CODER_AIGATEWAY_SESSION_TOKEN"
   value    = data.coder_workspace_owner.me.session_token
 }
 
@@ -138,21 +137,20 @@ locals {
   [model_providers.aigateway]
   name = "AI Gateway"
   base_url = "${data.coder_workspace.me.access_url}/api/v2/aibridge/openai/v1"
-  env_key = "CODER_AIBRIDGE_SESSION_TOKEN"
+  env_key = "OPENAI_CODER_AIGATEWAY_SESSION_TOKEN"
   wire_api = "responses"
 
   EOF
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
-    ARG_INSTALL          = tostring(var.install_codex)
-    ARG_INSTALL_PATH     = base64encode(var.install_path)
-    ARG_CODEX_VERSION    = var.codex_version != "" ? base64encode(var.codex_version) : ""
-    ARG_WORKDIR          = local.workdir != "" ? base64encode(local.workdir) : ""
-    ARG_BASE_CONFIG_TOML = var.base_config_toml != "" ? base64encode(var.base_config_toml) : ""
-    ARG_MCP              = var.mcp != "" ? base64encode(var.mcp) : ""
+    ARG_INSTALL                = tostring(var.install_codex)
+    ARG_CODEX_VERSION          = var.codex_version
+    ARG_WORKDIR                = local.workdir != "" ? base64encode(local.workdir) : ""
+    ARG_BASE_CONFIG_TOML       = var.base_config_toml != "" ? base64encode(var.base_config_toml) : ""
+    ARG_MCP                    = var.mcp != "" ? base64encode(var.mcp) : ""
+    ARG_MCP_CONFIG_REMOTE_PATH = base64encode(jsonencode(var.mcp_config_remote_path))
     ARG_ENABLE_AI_GATEWAY      = tostring(var.enable_ai_gateway)
     ARG_AIBRIDGE_CONFIG        = var.enable_ai_gateway ? base64encode(local.aibridge_config) : ""
     ARG_MODEL_REASONING_EFFORT = var.model_reasoning_effort
-    ARG_OPENAI_API_KEY         = var.openai_api_key != "" ? base64encode(var.openai_api_key) : ""
   })
   module_dir_name = ".coder-modules/coder-labs/codex"
 }

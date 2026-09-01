@@ -3,21 +3,21 @@
 set -euo pipefail
 
 BOLD='\033[0;1m'
+CODEX_VERSION=""
 
 command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
 ARG_INSTALL='${ARG_INSTALL}'
-ARG_INSTALL_PATH=$(echo -n '${ARG_INSTALL_PATH}' | base64 -d)
-ARG_CODEX_VERSION=$(echo -n '${ARG_CODEX_VERSION}' | base64 -d)
+ARG_CODEX_VERSION='${ARG_CODEX_VERSION}'
 ARG_WORKDIR=$(echo -n '${ARG_WORKDIR}' | base64 -d)
 ARG_BASE_CONFIG_TOML=$(echo -n '${ARG_BASE_CONFIG_TOML}' | base64 -d)
 ARG_MCP=$(echo -n '${ARG_MCP}' | base64 -d)
+ARG_MCP_CONFIG_REMOTE_PATH=$(echo -n '${ARG_MCP_CONFIG_REMOTE_PATH}' | base64 -d)
 ARG_ENABLE_AI_GATEWAY='${ARG_ENABLE_AI_GATEWAY}'
 ARG_AIBRIDGE_CONFIG=$(echo -n '${ARG_AIBRIDGE_CONFIG}' | base64 -d)
 ARG_MODEL_REASONING_EFFORT='${ARG_MODEL_REASONING_EFFORT}'
-ARG_OPENAI_API_KEY=$(echo -n '${ARG_OPENAI_API_KEY}' | base64 -d)
 
 echo "--------------------------------"
 printf "codex_version: %s\n" "$${ARG_CODEX_VERSION}"
@@ -25,6 +25,7 @@ printf "workdir: %s\n" "$${ARG_WORKDIR}"
 printf "enable_ai_gateway: %s\n" "$${ARG_ENABLE_AI_GATEWAY}"
 printf "install_codex: %s\n" "$${ARG_INSTALL}"
 printf "model_reasoning_effort: %s\n" "$${ARG_MODEL_REASONING_EFFORT}"
+printf "mcp_config_remote_path: %s\n" "$${ARG_MCP_CONFIG_REMOTE_PATH}"
 echo "--------------------------------"
 
 function add_path_to_shell_profiles() {
@@ -52,13 +53,16 @@ function ensure_codex_in_path() {
   local CODEX_BIN=""
   if command -v codex > /dev/null 2>&1; then
     CODEX_BIN=$(command -v codex)
-  elif [ -x "$${ARG_INSTALL_PATH}/codex" ]; then
-    CODEX_BIN="$${ARG_INSTALL_PATH}/codex"
   fi
 
   if [ -z "$${CODEX_BIN}" ] || [ ! -x "$${CODEX_BIN}" ]; then
-    echo "Warning: Could not find codex binary after install"
-    return
+    echo "Codex binary was not found or is not executable." >&2
+    return 1
+  fi
+
+  if ! CODEX_VERSION=$("$${CODEX_BIN}" --version); then
+    echo "Codex binary could not be executed." >&2
+    return 1
   fi
 
   local CODEX_DIR
@@ -72,47 +76,77 @@ function ensure_codex_in_path() {
   add_path_to_shell_profiles "$${CODEX_DIR}"
 }
 
-function download_file() {
-  local url="$1"
-  local dest="$2"
+function download_codex() (
+  local target="$1"
+  local url="$2"
+  local tmp_dir archive archive_contents candidate
 
-  if command -v curl > /dev/null 2>&1; then
-    curl -sSLf -o "$${dest}" "$${url}"
-  elif command -v wget > /dev/null 2>&1; then
-    wget -q -O "$${dest}" "$${url}"
-  else
-    echo "Error: curl or wget is required to download files."
+  tmp_dir=$(mktemp -d)
+  trap 'rm -rf "$${tmp_dir}"' EXIT
+  archive="$${tmp_dir}/codex.tar.gz"
+  archive_contents="$${tmp_dir}/archive-contents"
+  candidate="$${tmp_dir}/codex-$${target}"
+
+  if ! curl --fail --silent --show-error --location \
+    --retry 2 --retry-delay 1 --retry-all-errors \
+    --connect-timeout 10 --max-time 300 \
+    --output "$${archive}" "$${url}"; then
+    echo "Codex could not be downloaded after up to 3 attempts." >&2
     return 1
   fi
-}
 
-function install_codex_standalone() {
+  if ! tar -tzf "$${archive}" > "$${archive_contents}" 2> /dev/null; then
+    echo "Codex download was not a valid archive." >&2
+    return 1
+  fi
+
+  if ! grep -qx "codex-$${target}" "$${archive_contents}"; then
+    echo "Codex archive did not contain the expected binary." >&2
+    return 1
+  fi
+
+  if ! tar -xzf "$${archive}" -C "$${tmp_dir}" "codex-$${target}"; then
+    echo "Codex archive could not be extracted." >&2
+    return 1
+  fi
+
+  chmod +x "$${candidate}"
+  if ! "$${candidate}" --version > /dev/null; then
+    echo "Downloaded Codex binary could not be executed." >&2
+    return 1
+  fi
+
+  mkdir -p "$HOME/.local/bin"
+  mv "$${candidate}" "$HOME/.local/bin/codex"
+)
+
+function install_codex() {
+  if [ "$${ARG_INSTALL}" != "true" ]; then
+    echo "Skipping Codex installation as per configuration."
+    ensure_codex_in_path
+    printf "%s Validated existing Codex CLI: %s\n" "$${BOLD}" "$${CODEX_VERSION}"
+    return
+  fi
+
+  printf "%s Installing Codex CLI\n" "$${BOLD}"
+
+  local arch
+  arch=$(uname -m)
+  local target="$${arch}-unknown-linux-musl"
   local version="$${ARG_CODEX_VERSION}"
 
-  printf "%s Installing Codex CLI (standalone)\n" "$${BOLD}"
+  local url="https://github.com/openai/codex/releases/download/rust-v$${version}/codex-$${target}.tar.gz"
 
-  # Download and run the official install script
-  local tmpdir
-  tmpdir=$(mktemp -d)
-
-  if ! download_file "https://github.com/openai/codex/releases/latest/download/install.sh" "$${tmpdir}/install.sh"; then
-    echo "Error: Failed to download Codex installer."
-    rm -rf "$${tmpdir}"
-    return 1
+  if [ "$${version}" = "latest" ]; then
+    url="https://github.com/openai/codex/releases/latest/download/codex-$${target}.tar.gz"
   fi
 
-  chmod +x "$${tmpdir}/install.sh"
+  printf "Downloading %s\n" "$${url}"
+  download_codex "$${target}" "$${url}"
 
-  # Run the install script (installs to PATH by default)
-  if [ -n "$${version}" ] && [ "$${version}" != "latest" ]; then
-    "$${tmpdir}/install.sh" --version "$${version}"
-  else
-    "$${tmpdir}/install.sh"
-  fi
-
-  rm -rf "$${tmpdir}"
-  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$$(codex --version)"
+  export PATH="$HOME/.local/bin:$PATH"
   ensure_codex_in_path
+  printf "%s Installed Codex CLI: %s\n" "$${BOLD}" "$${CODEX_VERSION}"
 }
 
 function write_minimal_default_config() {
@@ -128,8 +162,7 @@ function write_minimal_default_config() {
   fi
 
   cat << EOF > "$${config_path}"
-cli_auth_credentials_store = "file"
-mcp_oauth_credentials_store_mode = "file"
+preferred_auth_method = "apikey"
 $${optional_config}
 
 EOF
@@ -147,27 +180,106 @@ function populate_config_toml() {
   local config_path="$HOME/.codex/config.toml"
   mkdir -p "$(dirname "$${config_path}")"
 
+  local MANAGED_START="# >>> coder-managed: codex module >>>"
+  local MANAGED_END="# <<< coder-managed: codex module <<<"
+
+  # Reject inputs that contain the managed-block markers to prevent embedding
+  # spurious markers that would corrupt the block structure on subsequent runs.
+  for _arg in "$${ARG_BASE_CONFIG_TOML}" "$${ARG_MCP}"; do
+    if [ -n "$${_arg}" ] && printf '%s' "$${_arg}" | grep -qF -e "$${MANAGED_START}" -e "$${MANAGED_END}"; then
+      printf 'Error: a codex module input contains a managed-block marker; aborting.\n' >&2
+      return 1
+    fi
+  done
+
+  # Build managed-block content in a temp file.
+  local managed="" config_tmp=""
+  trap 'rm -f "$${managed:-}" "$${config_tmp:-}"' EXIT
+  managed=$(mktemp)
+
   if [ -n "$${ARG_BASE_CONFIG_TOML}" ]; then
     printf "Using provided base configuration\n"
-    echo "$${ARG_BASE_CONFIG_TOML}" > "$${config_path}"
+    printf '%s\n' "$${ARG_BASE_CONFIG_TOML}" > "$${managed}"
   else
     printf "Using minimal default configuration\n"
-    write_minimal_default_config "$${config_path}"
+    write_minimal_default_config "$${managed}"
   fi
 
   if [ -n "$${ARG_MCP}" ]; then
     printf "Adding MCP servers\n"
-    echo "$${ARG_MCP}" >> "$${config_path}"
+    printf '%s\n' "$${ARG_MCP}" >> "$${managed}"
+  fi
+
+  if [ -n "$${ARG_MCP_CONFIG_REMOTE_PATH}" ] && [ "$${ARG_MCP_CONFIG_REMOTE_PATH}" != "[]" ]; then
+    if ! command -v jq > /dev/null 2>&1; then
+      printf "Error: 'jq' is required to fetch remote MCP configurations but was not found.\n" >&2
+      return 1
+    fi
+    echo "$${ARG_MCP_CONFIG_REMOTE_PATH}" | jq -r '.[]' | while IFS= read -r url; do
+      echo "Fetching MCP configuration from: $${url}"
+      mcp_toml=$(curl -fsSL --connect-timeout 10 --max-time 30 "$${url}") || {
+        echo "Warning: Failed to fetch MCP configuration from '$${url}', continuing..."
+        continue
+      }
+      if printf '%s' "$${mcp_toml}" | grep -qF -e "$${MANAGED_START}" -e "$${MANAGED_END}"; then
+        echo "Warning: Remote MCP configuration from '$${url}' contains managed-block markers, skipping..."
+        continue
+      fi
+      printf "Appending MCP servers from %s\n" "$${url}"
+      printf '\n%s\n' "$${mcp_toml}" >> "$${managed}"
+    done
   fi
 
   if [ "$${ARG_ENABLE_AI_GATEWAY}" = "true" ] && [ -n "$${ARG_AIBRIDGE_CONFIG}" ]; then
-    if ! grep -q '\[model_providers\.aigateway\]' "$${config_path}" 2>/dev/null; then
+    if ! grep -q '\[model_providers\.aigateway\]' "$${managed}" 2> /dev/null; then
       printf "Adding AI Gateway configuration\n"
-      echo -e "\n$${ARG_AIBRIDGE_CONFIG}" >> "$${config_path}"
+      printf '\n%s\n' "$${ARG_AIBRIDGE_CONFIG}" >> "$${managed}"
     else
       printf "AI Gateway provider already defined in config, skipping append\n"
     fi
   fi
+
+  # Preserve user content from the existing config.
+  # user_before = everything before MANAGED_START
+  # user_after  = everything after MANAGED_END
+  # On the first run (no markers), both are empty and the file is written fresh.
+  local existing_config="" user_before="" user_after=""
+  if [ -s "$${config_path}" ]; then
+    existing_config=$(cat "$${config_path}")
+  fi
+  if [ -n "$${existing_config}" ]; then
+    if printf '%s\n' "$${existing_config}" | grep -qF "$${MANAGED_START}"; then
+      if printf '%s\n' "$${existing_config}" | grep -qF "$${MANAGED_END}"; then
+        user_before=$(printf '%s\n' "$${existing_config}" | awk -v m="$${MANAGED_START}" '$0==m{exit} {print}')
+        user_after=$(printf '%s\n' "$${existing_config}" | awk -v m="$${MANAGED_END}" 'found{print} $0==m{found=1}')
+        user_before=$(printf '%s\n' "$${user_before}" | sed '/./,$!d')
+        user_after=$(printf '%s\n' "$${user_after}" | sed '/./,$!d')
+      else
+        # Start marker present but end marker missing (file was truncated or hand-edited).
+        # Treat everything as user_before to avoid silently deleting data.
+        printf "Warning: codex config has managed-block start marker but no end marker; treating entire file as user content\n"
+        user_before="$${existing_config}"
+      fi
+    fi
+  fi
+
+  # Assemble final config atomically:
+  #   user_before  (content that was before the managed block)
+  #   managed block
+  #   user_after   (content that was after the managed block)
+  config_tmp=$(mktemp "$${config_path}.XXXXXX")
+  {
+    if [ -n "$${user_before}" ]; then
+      printf '%s\n\n' "$${user_before}"
+    fi
+    printf '%s\n' "$${MANAGED_START}"
+    cat "$${managed}"
+    printf '%s\n' "$${MANAGED_END}"
+    if [ -n "$${user_after}" ]; then
+      printf '\n%s\n' "$${user_after}"
+    fi
+  } > "$${config_tmp}" && mv "$${config_tmp}" "$${config_path}"
+  rm -f "$${managed}"
 }
 
 function setup_workdir() {
@@ -177,30 +289,19 @@ function setup_workdir() {
   fi
 }
 
-function add_auth_json() {
-  if [ "$${ARG_ENABLE_AI_GATEWAY}" = "true" ] || [ -z "$${ARG_OPENAI_API_KEY}" ]; then
+function authenticate_codex() {
+  if [ "$${ARG_ENABLE_AI_GATEWAY}" = "true" ] || [ -z "$${OPENAI_API_KEY:-}" ]; then
     return
   fi
 
-  local auth_path="$HOME/.codex/auth.json"
-  mkdir -p "$(dirname "$${auth_path}")"
-
-  cat << EOF > "$${auth_path}"
-{
-  "auth_mode": "apikey",
-  "OPENAI_API_KEY": "$${ARG_OPENAI_API_KEY}"
-}
-EOF
-  chmod 600 "$${auth_path}"
-  echo "Seeded auth.json with API key"
+  if ! printf '%s' "$${OPENAI_API_KEY}" | codex login --with-api-key; then
+    echo "Codex authentication failed." >&2
+    return 1
+  fi
+  echo "Codex authenticated successfully."
 }
 
-if [ "$${ARG_INSTALL}" = "true" ]; then
-  install_codex_standalone
-else
-  echo "Skipping Codex installation as per configuration."
-  ensure_codex_in_path
-fi
+install_codex
 populate_config_toml
 setup_workdir
-add_auth_json
+authenticate_codex
