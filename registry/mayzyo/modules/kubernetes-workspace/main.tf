@@ -253,6 +253,10 @@ resource "kubernetes_persistent_volume_claim_v1" "home" {
       }
     }
   }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "kubernetes_pod_v1" "main" {
