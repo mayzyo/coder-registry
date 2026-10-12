@@ -1,0 +1,89 @@
+#!/bin/bash
+
+set -euo pipefail
+
+command_exists() {
+  command -v "$1" > /dev/null 2>&1
+}
+
+add_path_to_shell_profiles() {
+  local path_dir="$1"
+
+  for profile in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.zshrc"; do
+    if [ -f "$${profile}" ] && ! grep -q "$${path_dir}" "$${profile}" 2> /dev/null; then
+      echo "export PATH=\"\$PATH:$${path_dir}\"" >> "$${profile}"
+      echo "Added $${path_dir} to $${profile}"
+    fi
+  done
+
+  local fish_config="$HOME/.config/fish/config.fish"
+  if [ -f "$${fish_config}" ] && ! grep -q "$${path_dir}" "$${fish_config}" 2> /dev/null; then
+    echo "fish_add_path $${path_dir}" >> "$${fish_config}"
+    echo "Added $${path_dir} to $${fish_config}"
+  fi
+}
+
+install_opencode() {
+  local install_dir="$HOME/.opencode/bin"
+
+  if [ "$${ARG_INSTALL_OPENCODE}" != "true" ]; then
+    echo "Skipping OpenCode installation."
+    export PATH="$${install_dir}:$PATH"
+    return
+  fi
+
+  local installed_version=""
+  local requested_version="$${ARG_OPENCODE_VERSION#v}"
+  if [ -x "$${install_dir}/opencode" ]; then
+    installed_version="$("$install_dir/opencode" --version 2> /dev/null || echo "")"
+  fi
+
+  if [ -n "$${installed_version}" ] && { [ "$${ARG_OPENCODE_VERSION}" = "latest" ] || [ "$${installed_version}" = "$${requested_version}" ]; }; then
+    echo "OpenCode already installed at $${install_dir}/opencode (version: $${installed_version})"
+  else
+    echo "Installing OpenCode (version: $${ARG_OPENCODE_VERSION})..."
+    if [ "$${ARG_OPENCODE_VERSION}" = "latest" ]; then
+      curl -fsSL https://opencode.ai/install | bash
+    else
+      curl -fsSL https://opencode.ai/install | VERSION="$${ARG_OPENCODE_VERSION}" bash
+    fi
+  fi
+
+  export PATH="$${install_dir}:$PATH"
+
+  if [ ! -x "$${install_dir}/opencode" ] && ! command_exists opencode; then
+    echo "Error: Failed to install OpenCode; $${install_dir}/opencode not found."
+    return 1
+  fi
+
+  add_path_to_shell_profiles "$${install_dir}"
+  echo "OpenCode version: $(opencode --version 2> /dev/null || echo unknown)"
+}
+
+configure_opencode() {
+  if [ -n "$${ARG_WORKDIR}" ]; then
+    mkdir -p "$${ARG_WORKDIR}"
+  fi
+
+  if [ -n "$${ARG_OPENCODE_CONFIG}" ]; then
+    local config_dir="$HOME/.config/opencode"
+    mkdir -p "$${config_dir}"
+    printf '%s' "$${ARG_OPENCODE_CONFIG}" | base64 -d > "$${config_dir}/opencode.jsonc"
+    chmod 0600 "$${config_dir}/opencode.jsonc"
+    echo "Wrote OpenCode config to $${config_dir}/opencode.jsonc"
+  fi
+}
+
+ARG_INSTALL_OPENCODE='${ARG_INSTALL_OPENCODE}'
+ARG_OPENCODE_VERSION='${ARG_OPENCODE_VERSION}'
+ARG_WORKDIR=$(echo -n '${ARG_WORKDIR}' | base64 -d)
+ARG_OPENCODE_CONFIG='${ARG_OPENCODE_CONFIG}'
+
+echo "--------------------------------"
+printf "install_opencode: %s\n" "$${ARG_INSTALL_OPENCODE}"
+printf "opencode_version: %s\n" "$${ARG_OPENCODE_VERSION}"
+printf "workdir: %s\n" "$${ARG_WORKDIR}"
+echo "--------------------------------"
+
+install_opencode
+configure_opencode

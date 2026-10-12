@@ -54,6 +54,13 @@ variable "tavily_api_key" {
   sensitive   = true
 }
 
+variable "openwebui_api_key" {
+  description = "Optional API key for the Open WebUI endpoint used by OpenCode."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 # --- Coder Parameters for AI Assistants ---
 data "coder_parameter" "run_codex" {
   name         = "run_codex"
@@ -92,6 +99,16 @@ data "coder_parameter" "run_antigravity" {
   type         = "bool"
   mutable      = true
   description  = "Pre-install and run Antigravity CLI?"
+  default      = false
+}
+
+data "coder_parameter" "run_opencode" {
+  name         = "run_opencode"
+  display_name = "Run OpenCode"
+  icon         = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/opencode.svg"
+  type         = "bool"
+  mutable      = true
+  description  = "Pre-install and run OpenCode?"
   default      = false
 }
 
@@ -287,5 +304,29 @@ resource "coder_app" "antigravity" {
     #!/bin/bash
     set -e
     ${local.workdir_cmd}agy
+  EOT
+}
+
+# --- OpenCode ---
+module "opencode" {
+  count             = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
+  source            = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/opencode"
+  agent_id          = var.agent_id
+  workdir           = var.workdir
+  openwebui_api_key = var.openwebui_api_key
+}
+
+resource "coder_app" "opencode" {
+  count        = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
+  agent_id     = var.agent_id
+  slug         = "opencode"
+  display_name = "OpenCode"
+  icon         = "https://raw.githubusercontent.com/mayzyo/coder-registry/main/registry/mayzyo/.images/opencode.svg"
+  open_in      = "slim-window"
+  command      = <<-EOT
+    #!/bin/bash
+    set -e
+    export PATH="$HOME/.opencode/bin:$PATH"
+    ${local.workdir_cmd}opencode
   EOT
 }
