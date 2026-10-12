@@ -13,7 +13,7 @@ Install and configure the [OpenCode](https://opencode.ai) CLI (V2) in your works
 ```tf
 module "opencode" {
   source   = "registry.coder.com/mayzyo/opencode/coder"
-  version  = "2.1.0"
+  version  = "2.1.1"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
 }
@@ -41,7 +41,7 @@ Keep the API key out of the config file. When `openwebui_api_key` is set, the mo
 ```tf
 module "opencode" {
   source             = "registry.coder.com/mayzyo/opencode/coder"
-  version            = "2.1.0"
+  version            = "2.1.1"
   agent_id           = coder_agent.main.id
   workdir            = "/home/coder/project"
   openwebui_api_key  = var.openwebui_api_key
@@ -58,7 +58,7 @@ The module shares the optional [Exa](https://exa.ai), GitHub, and [Context7](htt
 ```tf
 module "opencode" {
   source           = "registry.coder.com/mayzyo/opencode/coder"
-  version          = "2.1.0"
+  version          = "2.1.1"
   agent_id         = coder_agent.main.id
   workdir          = "/home/coder/project"
   exa_api_key      = var.exa_api_key
@@ -72,7 +72,7 @@ module "opencode" {
 ```tf
 module "opencode" {
   source   = "registry.coder.com/mayzyo/opencode/coder"
-  version  = "2.1.0"
+  version  = "2.1.1"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
 
@@ -103,7 +103,7 @@ resource "coder_app" "opencode" {
 ```tf
 module "opencode" {
   source           = "registry.coder.com/mayzyo/opencode/coder"
-  version          = "2.1.0"
+  version          = "2.1.1"
   agent_id         = coder_agent.main.id
   opencode_version = "2.0.0"
 }

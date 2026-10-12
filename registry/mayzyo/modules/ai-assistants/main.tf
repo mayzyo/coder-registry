@@ -135,8 +135,7 @@ locals {
 # workspace. The wrapped assistant modules render their own config entries and
 # skip env creation so the variables are not duplicated.
 module "ai_integrations" {
-  source  = "registry.coder.com/mayzyo/ai-integrations/coder"
-  version = "0.1.0"
+  source = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/ai-integrations"
 
   agent_id         = var.agent_id
   exa_api_key      = var.exa_api_key
@@ -201,8 +200,7 @@ resource "coder_app" "claude" {
 # --- Qwen Code ---
 module "qwen_code" {
   count    = data.coder_parameter.run_qwen_code.value ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/mayzyo/qwen-code/coder"
-  version  = "1.1.0"
+  source   = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/qwen-code"
   agent_id = var.agent_id
   workdir  = var.workdir
 
@@ -308,8 +306,7 @@ resource "coder_app" "qwen_code" {
 # --- Antigravity CLI ---
 module "antigravity" {
   count    = data.coder_parameter.run_antigravity.value ? data.coder_workspace.me.start_count : 0
-  source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
-  version  = "0.1.2"
+  source   = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/antigravity-cli"
   agent_id = var.agent_id
   workdir  = var.workdir
 }
@@ -331,8 +328,7 @@ resource "coder_app" "antigravity" {
 # --- OpenCode ---
 module "opencode" {
   count              = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
-  source             = "registry.coder.com/mayzyo/opencode/coder"
-  version            = "2.1.0"
+  source             = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/opencode"
   agent_id           = var.agent_id
   workdir            = var.workdir
   openwebui_api_key  = var.openwebui_api_key

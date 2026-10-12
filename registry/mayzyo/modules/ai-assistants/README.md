@@ -13,7 +13,7 @@ A unified Coder module that provides an AI coding assistant suite (Codex, Claude
 ```tf
 module "ai_assistants" {
   source  = "registry.coder.com/mayzyo/ai-assistants/coder"
-  version = "2.1.0"
+  version = "2.1.1"
 
   agent_id = coder_agent.main.id
   workdir  = local.workspace_dir

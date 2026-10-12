@@ -13,7 +13,7 @@ Install and configure the [Qwen Code](https://github.com/QwenLM/qwen-code) CLI i
 ```tf
 module "qwen-code" {
   source       = "registry.coder.com/mayzyo/qwen-code/coder"
-  version      = "1.1.0"
+  version      = "1.1.1"
   agent_id     = coder_agent.main.id
   qwen_api_key = var.dashscope_api_key
 }
@@ -35,7 +35,7 @@ The generated `settings.json` references each credential with Qwen Code's `${VAR
 ```tf
 module "qwen-code" {
   source  = "registry.coder.com/mayzyo/qwen-code/coder"
-  version = "1.1.0"
+  version = "1.1.1"
 
   agent_id         = coder_agent.main.id
   qwen_api_key     = var.dashscope_api_key
@@ -54,7 +54,7 @@ locals {
 
 module "qwen-code" {
   source       = "registry.coder.com/mayzyo/qwen-code/coder"
-  version      = "1.1.0"
+  version      = "1.1.1"
   agent_id     = coder_agent.main.id
   workdir      = local.qwen_workdir
   qwen_api_key = var.dashscope_api_key
@@ -82,7 +82,7 @@ Configure Qwen Code for any OpenAI-compatible endpoint by passing the provider v
 ```tf
 module "qwen-code" {
   source               = "registry.coder.com/mayzyo/qwen-code/coder"
-  version              = "1.1.0"
+  version              = "1.1.1"
   agent_id             = coder_agent.main.id
   qwen_model           = "qwen/qwen3-coder"
   qwen_base_url        = "https://openrouter.ai/api/v1"
@@ -104,7 +104,7 @@ For advanced provider, model, or security configuration, pass the full Qwen sett
 ```tf
 module "qwen-code" {
   source       = "registry.coder.com/mayzyo/qwen-code/coder"
-  version      = "1.1.0"
+  version      = "1.1.1"
   agent_id     = coder_agent.main.id
   qwen_api_key = var.openrouter_api_key
 
@@ -135,7 +135,7 @@ module "qwen-code" {
 ```tf
 module "qwen-code" {
   source   = "registry.coder.com/mayzyo/qwen-code/coder"
-  version  = "1.1.0"
+  version  = "1.1.1"
   agent_id = coder_agent.main.id
 
   install_method    = "standalone"

@@ -178,8 +178,7 @@ locals {
 }
 
 module "ai_integrations" {
-  source  = "registry.coder.com/mayzyo/ai-integrations/coder"
-  version = "0.1.0"
+  source = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/ai-integrations"
 
   agent_id         = var.agent_id
   create_env       = var.create_integration_env

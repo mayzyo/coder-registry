@@ -261,8 +261,7 @@ locals {
 }
 
 module "qwen_code" {
-  source  = "registry.coder.com/mayzyo/qwen-code/coder"
-  version = "1.1.0"
+  source = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/qwen-code"
 
   agent_id             = var.agent_id
   icon                 = var.icon
