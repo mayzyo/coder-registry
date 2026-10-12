@@ -11,7 +11,7 @@ run "defaults" {
   }
 
   assert {
-    condition     = jsondecode(local.opencode_config_json).provider.openwebui.options.baseURL == "https://chat.destinesia.studio/api"
+    condition     = jsondecode(local.opencode_config_json).provider.openwebui.options.baseURL == "http://openwebui.time-emoji-services/api"
     error_message = "generated config should target the default Open WebUI base URL"
   }
 
