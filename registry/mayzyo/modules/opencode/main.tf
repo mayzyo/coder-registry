@@ -79,7 +79,7 @@ locals {
   module_directory = "$HOME/.coder-modules/mayzyo/opencode"
   workdir          = var.workdir != null ? trimsuffix(var.workdir, "/") : ""
 
-  openwebui_base_url = "http://openwebui.time-emoji-services/api"
+  openwebui_base_url = "http://open-webui.time-emoji-services/api"
 
   openwebui_options = var.openwebui_api_key != "" ? {
     baseURL = local.openwebui_base_url
