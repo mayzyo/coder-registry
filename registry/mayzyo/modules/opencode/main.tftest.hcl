@@ -43,6 +43,31 @@ run "defaults" {
   }
 
   assert {
+    condition     = jsondecode(local.opencode_config_json).model == "openwebui/local"
+    error_message = "generated config should default to the local Open WebUI model"
+  }
+
+  assert {
+    condition     = jsondecode(local.opencode_config_json).providers.openwebui.models.local.name == "Qwen 3.8 Flash Next" && jsondecode(local.opencode_config_json).providers.openwebui.models.local.limit.context == 262144
+    error_message = "generated config should name and size the local model"
+  }
+
+  assert {
+    condition     = jsondecode(local.opencode_config_json).providers.openwebui.models["glm-5.3"].limit.context == 1000000 && jsondecode(local.opencode_config_json).providers.openwebui.models["deepseek-v4.1-flash"].name == "DeepSeek V4.1 Flash"
+    error_message = "generated config should include model context limits and display names"
+  }
+
+  assert {
+    condition     = jsondecode(local.opencode_config_json).compaction.auto == true && jsondecode(local.opencode_config_json).compaction.keep.tokens == 30000
+    error_message = "generated config should enable automatic compaction with a token budget"
+  }
+
+  assert {
+    condition     = !contains(keys(jsondecode(local.opencode_config_json).agents), "scout") && !contains(keys(jsondecode(local.opencode_config_json).agents), "compaction")
+    error_message = "generated config should not define scout/compaction agents in V2"
+  }
+
+  assert {
     condition     = !contains(keys(jsondecode(local.opencode_config_json)), "websearch")
     error_message = "generated config should leave search provider selection to OpenCode without an Exa credential"
   }
@@ -104,6 +129,20 @@ run "openwebui_api_key" {
   assert {
     condition     = !strcontains(local.opencode_config_json, "test-openwebui-key")
     error_message = "generated config should not contain the API key secret"
+  }
+}
+
+run "custom_base_url" {
+  command = plan
+
+  variables {
+    agent_id           = "test-agent-id"
+    openwebui_base_url = "https://chat.example.com/api"
+  }
+
+  assert {
+    condition     = jsondecode(local.opencode_config_json).providers.openwebui.settings.baseURL == "https://chat.example.com/api"
+    error_message = "openwebui_base_url should override the default base URL"
   }
 }
 

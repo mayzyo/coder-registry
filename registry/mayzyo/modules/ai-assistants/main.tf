@@ -68,6 +68,12 @@ variable "openwebui_api_key" {
   sensitive   = true
 }
 
+variable "openwebui_base_url" {
+  description = "Open WebUI OpenAI-compatible base URL used for the local Qwen model."
+  type        = string
+  default     = "http://open-webui.time-emoji-services/api"
+}
+
 # --- Coder Parameters for AI Assistants ---
 data "coder_parameter" "run_codex" {
   name         = "run_codex"
@@ -209,16 +215,16 @@ module "qwen_code" {
       usageStatisticsEnabled = false
     }
     env = {
-      LOCAL_KEY       = "not needed"
-      BAILIAN_API_KEY = var.bailian_api_key
+      OPENWEBUI_API_KEY = var.openwebui_api_key
+      BAILIAN_API_KEY   = var.bailian_api_key
     }
     modelProviders = {
       openai = [
         {
-          id      = "qwen-3.5-122b"
-          name    = "Qwen 3.5 122B"
-          baseUrl = "${var.anthropic_base_url}/v1"
-          envKey  = "LOCAL_KEY"
+          id      = "local"
+          name    = "Qwen 3.8 Flash Next"
+          baseUrl = var.openwebui_base_url
+          envKey  = "OPENWEBUI_API_KEY"
         },
         {
           id      = "qwen3.7-max"
@@ -258,7 +264,7 @@ module "qwen_code" {
       }
     }
     model = {
-      name = "qwen-3.5-122b"
+      name = "local"
     }
     permissions = {
       allow = [
@@ -324,12 +330,13 @@ resource "coder_app" "antigravity" {
 
 # --- OpenCode ---
 module "opencode" {
-  count             = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
-  source            = "registry.coder.com/mayzyo/opencode/coder"
-  version           = "2.0.0"
-  agent_id          = var.agent_id
-  workdir           = var.workdir
-  openwebui_api_key = var.openwebui_api_key
+  count              = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
+  source             = "registry.coder.com/mayzyo/opencode/coder"
+  version            = "2.1.0"
+  agent_id           = var.agent_id
+  workdir            = var.workdir
+  openwebui_api_key  = var.openwebui_api_key
+  openwebui_base_url = var.openwebui_base_url
 
   exa_api_key            = var.exa_api_key
   github_token           = var.github_pat

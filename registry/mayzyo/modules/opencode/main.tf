@@ -68,6 +68,12 @@ variable "openwebui_api_key" {
   sensitive   = true
 }
 
+variable "openwebui_base_url" {
+  description = "Open WebUI OpenAI-compatible base URL used by the default config's openwebui provider."
+  type        = string
+  default     = "http://open-webui.time-emoji-services/api"
+}
+
 variable "exa_api_key" {
   description = "Optional Exa API key. Enables the Exa web search provider and the Exa MCP integration, and exposes EXA_API_KEY to the agent."
   type        = string
@@ -106,42 +112,52 @@ locals {
   module_directory = "$HOME/.coder-modules/mayzyo/opencode"
   workdir          = var.workdir != null ? trimsuffix(var.workdir, "/") : ""
 
-  openwebui_base_url = "http://open-webui.time-emoji-services/api"
-
   openwebui_settings = var.openwebui_api_key != "" ? {
-    baseURL = local.openwebui_base_url
+    baseURL = var.openwebui_base_url
     apiKey  = "{env:OPENWEBUI_API_KEY}"
     } : {
-    baseURL = local.openwebui_base_url
+    baseURL = var.openwebui_base_url
   }
 
   # Native OpenCode V2 configuration. The V2 schema keeps the V1
   # "https://opencode.ai/config.json" schema URL for editor integration, but
-  # uses the native V2 shapes: providers/settings, agents, websearch, and
-  # mcp.servers.
+  # uses the native V2 shapes: providers/settings, agents, websearch, mcp.servers,
+  # and a top-level model/compaction configuration.
   base_opencode_config = {
     "$schema" = "https://opencode.ai/config.json"
+    model     = "openwebui/local"
     providers = {
       openwebui = {
         name     = "Open WebUI"
         package  = "@opencode/ai/providers/openai-compatible"
         settings = local.openwebui_settings
         models = {
-          "local"               = { name = "Qwen 3.8 Flash" }
-          "glm-5.3"             = { name = "GLM 5.3" }
-          "deepseek-v4.1-flash" = { name = "Deepseek V4.1 Flash" }
+          "local" = {
+            name  = "Qwen 3.8 Flash Next"
+            limit = { context = 262144 }
+          }
+          "glm-5.3" = {
+            name  = "GLM 5.3"
+            limit = { context = 1000000 }
+          }
+          "deepseek-v4.1-flash" = {
+            name  = "DeepSeek V4.1 Flash"
+            limit = { context = 262144 }
+          }
         }
       }
     }
     agents = {
-      build      = { model = "openwebui/deepseek-v4.1-flash" }
-      plan       = { model = "openwebui/glm-5.3" }
-      general    = { model = "openwebui/deepseek-v4.1-flash", steps = 25 }
-      explore    = { model = "openwebui/local" }
-      scout      = { model = "openwebui/local" }
-      compaction = { model = "openwebui/local" }
-      title      = { model = "openwebui/local" }
-      summary    = { model = "openwebui/local" }
+      build   = { model = "openwebui/deepseek-v4.1-flash" }
+      plan    = { model = "openwebui/glm-5.3" }
+      general = { model = "openwebui/deepseek-v4.1-flash", steps = 25 }
+      explore = { model = "openwebui/local" }
+      title   = { model = "openwebui/local" }
+      summary = { model = "openwebui/local" }
+    }
+    compaction = {
+      auto = true
+      keep = { tokens = 30000 }
     }
   }
 

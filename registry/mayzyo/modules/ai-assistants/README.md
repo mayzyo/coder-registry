@@ -13,7 +13,7 @@ A unified Coder module that provides an AI coding assistant suite (Codex, Claude
 ```tf
 module "ai_assistants" {
   source  = "registry.coder.com/mayzyo/ai-assistants/coder"
-  version = "2.0.0"
+  version = "2.1.0"
 
   agent_id = coder_agent.main.id
   workdir  = local.workspace_dir
@@ -25,6 +25,7 @@ module "ai_assistants" {
   exa_api_key        = var.exa_api_key
   context7_api_key   = var.context7_api_key
   openwebui_api_key  = var.openwebui_api_key
+  openwebui_base_url = var.openwebui_base_url
 }
 ```
 
@@ -43,6 +44,10 @@ Antigravity CLI is intentionally excluded because it performs search server-side
 
 > [!NOTE]
 > The suite previously wired Tavily into Qwen Code through `tavily_api_key`. That variable has been replaced by `exa_api_key`; update your template variables when upgrading.
+
+## Qwen Code
+
+Qwen Code is configured with a local `local` model provider that points at the Open WebUI OpenAI-compatible endpoint (`openwebui_base_url`, default `http://open-webui.time-emoji-services/api`) and authenticates with `OPENWEBUI_API_KEY`. The remaining providers use Alibaba Dashscope through `BAILIAN_API_KEY`.
 
 ## OpenCode
 

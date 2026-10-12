@@ -13,7 +13,7 @@ Install and configure the [OpenCode](https://opencode.ai) CLI (V2) in your works
 ```tf
 module "opencode" {
   source   = "registry.coder.com/mayzyo/opencode/coder"
-  version  = "2.0.0"
+  version  = "2.1.0"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
 }
@@ -21,7 +21,7 @@ module "opencode" {
 
 OpenCode V2 is installed from the official [V2 standalone installer](https://opencode.ai/v2/install), which downloads a self-contained binary to `$HOME/.opencode/bin`. Node.js and npm are **not** required.
 
-By default, the module writes a global native OpenCode V2 config to `~/.config/opencode/opencode.jsonc` for an OpenAI-compatible Open WebUI endpoint, selecting the Qwen, GLM, and Deepseek models and mapping them to the `build`, `plan`, and helper agents. The config uses the native V2 shapes (`providers`/`settings`, `agents`, `websearch`, `mcp.servers`) and selects Exa as the built-in web search provider when an Exa API key is supplied. Without that key, OpenCode keeps its normal search provider selection.
+By default, the module writes a global native OpenCode V2 config to `~/.config/opencode/opencode.jsonc` for an OpenAI-compatible Open WebUI endpoint (`openwebui_base_url`). It selects the Qwen (`local`), GLM, and DeepSeek models with context limits, sets `openwebui/local` as the default model, maps the `build`, `plan`, `general`, `explore`, `title`, and `summary` agents, and enables automatic compaction. The config uses the native V2 shapes (`providers`/`settings`, `agents`, `websearch`, `mcp.servers`) and selects Exa as the built-in web search provider when an Exa API key is supplied. Without that key, OpenCode keeps its normal search provider selection.
 
 > [!NOTE]
 > Pass `opencode_config` to replace the generated config entirely. The built-in default is only used when `opencode_config` is empty.
@@ -40,11 +40,12 @@ Keep the API key out of the config file. When `openwebui_api_key` is set, the mo
 
 ```tf
 module "opencode" {
-  source            = "registry.coder.com/mayzyo/opencode/coder"
-  version           = "2.0.0"
-  agent_id          = coder_agent.main.id
-  workdir           = "/home/coder/project"
-  openwebui_api_key = var.openwebui_api_key
+  source             = "registry.coder.com/mayzyo/opencode/coder"
+  version            = "2.1.0"
+  agent_id           = coder_agent.main.id
+  workdir            = "/home/coder/project"
+  openwebui_api_key  = var.openwebui_api_key
+  openwebui_base_url = var.openwebui_base_url
 }
 ```
 
@@ -57,7 +58,7 @@ The module shares the optional [Exa](https://exa.ai), GitHub, and [Context7](htt
 ```tf
 module "opencode" {
   source           = "registry.coder.com/mayzyo/opencode/coder"
-  version          = "2.0.0"
+  version          = "2.1.0"
   agent_id         = coder_agent.main.id
   workdir          = "/home/coder/project"
   exa_api_key      = var.exa_api_key
@@ -71,7 +72,7 @@ module "opencode" {
 ```tf
 module "opencode" {
   source   = "registry.coder.com/mayzyo/opencode/coder"
-  version  = "2.0.0"
+  version  = "2.1.0"
   agent_id = coder_agent.main.id
   workdir  = "/home/coder/project"
 
@@ -102,7 +103,7 @@ resource "coder_app" "opencode" {
 ```tf
 module "opencode" {
   source           = "registry.coder.com/mayzyo/opencode/coder"
-  version          = "2.0.0"
+  version          = "2.1.0"
   agent_id         = coder_agent.main.id
   opencode_version = "2.0.0"
 }
