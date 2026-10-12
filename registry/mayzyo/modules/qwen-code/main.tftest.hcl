@@ -50,8 +50,8 @@ run "qwen_api_key_env" {
   command = plan
 
   variables {
-    agent_id      = "test-agent-id"
-    qwen_api_key  = "test-key"
+    agent_id     = "test-agent-id"
+    qwen_api_key = "test-key"
   }
 
   assert {
@@ -81,7 +81,7 @@ run "custom_provider_variables" {
     qwen_api_key_env_var      = "OPENROUTER_API_KEY"
     qwen_api_key              = "test-openrouter-key"
     qwen_provider_description = "Qwen through OpenRouter"
-    qwen_generation_config    = {
+    qwen_generation_config = {
       contextWindowSize = 262144
     }
   }
@@ -140,6 +140,76 @@ run "custom_settings" {
   assert {
     condition     = jsondecode(local.settings_json).model.name == "custom-model"
     error_message = "custom settings should be used as-is"
+  }
+}
+
+run "integrations" {
+  command = plan
+
+  variables {
+    agent_id         = "test-agent-id"
+    exa_api_key      = "test-exa-key"
+    github_token     = "test-github-token"
+    context7_api_key = "test-context7-key"
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.exa.httpUrl == "https://mcp.exa.ai/mcp"
+    error_message = "enabled exa integration should add the Exa MCP server"
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.exa.headers["x-api-key"] == "$${EXA_API_KEY}"
+    error_message = "exa MCP server should reference EXA_API_KEY instead of the secret"
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.github.headers.Authorization == "Bearer $${GITHUB_PERSONAL_ACCESS_TOKEN}"
+    error_message = "github MCP server should reference GITHUB_PERSONAL_ACCESS_TOKEN"
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.context7.httpUrl == "https://mcp.context7.com/mcp"
+    error_message = "enabled context7 integration should add the Context7 MCP server"
+  }
+
+  assert {
+    condition     = !strcontains(local.settings_json, "test-exa-key") && !strcontains(local.settings_json, "test-github-token") && !strcontains(local.settings_json, "test-context7-key")
+    error_message = "generated settings should not contain any integration secrets"
+  }
+
+  assert {
+    condition     = module.ai_integrations.enabled.exa && module.ai_integrations.enabled.github && module.ai_integrations.enabled.context7
+    error_message = "the shared integrations module should receive every provided credential"
+  }
+}
+
+run "integrations_merge_custom_settings" {
+  command = plan
+
+  variables {
+    agent_id    = "test-agent-id"
+    exa_api_key = "test-exa-key"
+    qwen_settings = {
+      mcpServers = {
+        custom = {
+          httpUrl = "https://example.com/mcp"
+        }
+        exa = {
+          httpUrl = "https://override.example.com/mcp"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.custom.httpUrl == "https://example.com/mcp"
+    error_message = "user-provided mcpServers entries should be preserved"
+  }
+
+  assert {
+    condition     = jsondecode(local.settings_json).mcpServers.exa.httpUrl == "https://override.example.com/mcp"
+    error_message = "user-provided mcpServers should take precedence over generated integrations"
   }
 }
 

@@ -16,7 +16,7 @@ data "coder_task" "me" {}
 module "qwen_code_tasks" {
   count   = data.coder_workspace.me.start_count
   source  = "registry.coder.com/mayzyo/qwen-code-tasks/coder"
-  version = "1.0.3"
+  version = "1.1.0"
 
   agent_id    = coder_agent.main.id
   workdir     = "/home/coder/project"
@@ -33,6 +33,8 @@ resource "coder_ai_task" "qwen" {
   app_id = module.qwen_code_tasks[count.index].task_app_id
 }
 ```
+
+The wrapper forwards the optional shared `exa_api_key`, `github_token`, and `context7_api_key` inputs to the underlying `mayzyo/qwen-code` module, so Exa search, GitHub, and Context7 MCP servers can be enabled here the same way. See the [Qwen Code module](../qwen-code/README.md) for details.
 
 By default, the module starts Qwen Code in `yolo` approval mode for unattended task execution, disables Qwen telemetry and usage statistics in generated settings, and enables AgentAPI state persistence.
 

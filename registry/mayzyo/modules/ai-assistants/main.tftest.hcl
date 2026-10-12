@@ -131,3 +131,72 @@ run "plan_with_opencode" {
     error_message = "opencode app should use the opencode slug"
   }
 }
+
+run "plan_with_integrations" {
+  command = plan
+
+  variables {
+    agent_id         = "test-agent-id"
+    workdir          = "/home/node/project"
+    exa_api_key      = "test-exa-key"
+    github_pat       = "test-github-token"
+    context7_api_key = "test-context7-key"
+  }
+
+  override_data {
+    target = data.coder_workspace.me
+    values = {
+      start_count = 1
+    }
+  }
+
+  override_data {
+    target = data.coder_parameter.run_codex
+    values = {
+      value = false
+    }
+  }
+
+  override_data {
+    target = data.coder_parameter.run_claude_code
+    values = {
+      value = false
+    }
+  }
+
+  override_data {
+    target = data.coder_parameter.run_qwen_code
+    values = {
+      value = true
+    }
+  }
+
+  override_data {
+    target = data.coder_parameter.run_antigravity
+    values = {
+      value = false
+    }
+  }
+
+  override_data {
+    target = data.coder_parameter.run_opencode
+    values = {
+      value = true
+    }
+  }
+
+  assert {
+    condition     = length(module.ai_integrations.integrations) == 3
+    error_message = "the umbrella should enable all three shared integrations when credentials are set"
+  }
+
+  assert {
+    condition     = length(module.qwen_code) == 1 && length(module.opencode) == 1
+    error_message = "both MCP clients should be enabled to exercise shared integrations"
+  }
+
+  assert {
+    condition     = contains(module.ai_integrations.integrations, "exa") && contains(module.ai_integrations.integrations, "github") && contains(module.ai_integrations.integrations, "context7")
+    error_message = "the umbrella should enable exa, github, and context7"
+  }
+}

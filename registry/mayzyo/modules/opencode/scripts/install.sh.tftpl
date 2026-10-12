@@ -6,6 +6,16 @@ command_exists() {
   command -v "$1" > /dev/null 2>&1
 }
 
+normalize_version() {
+  local version="$1"
+  version="$${version##* }"
+  printf '%s' "$${version#v}"
+}
+
+is_v2_version() {
+  [[ "$1" =~ ^2\.[0-9]+\.[0-9]+([.-][A-Za-z0-9]+)*$ ]]
+}
+
 add_path_to_shell_profiles() {
   local path_dir="$1"
 
@@ -28,36 +38,45 @@ install_opencode() {
 
   if [ "$${ARG_INSTALL_OPENCODE}" != "true" ]; then
     echo "Skipping OpenCode installation."
-    export PATH="$${install_dir}:$PATH"
-    return
-  fi
-
-  local installed_version=""
-  local requested_version="$${ARG_OPENCODE_VERSION#v}"
-  if [ -x "$${install_dir}/opencode" ]; then
-    installed_version="$("$install_dir/opencode" --version 2> /dev/null || echo "")"
-  fi
-
-  if [ -n "$${installed_version}" ] && { [ "$${ARG_OPENCODE_VERSION}" = "latest" ] || [ "$${installed_version}" = "$${requested_version}" ]; }; then
-    echo "OpenCode already installed at $${install_dir}/opencode (version: $${installed_version})"
   else
-    echo "Installing OpenCode (version: $${ARG_OPENCODE_VERSION})..."
-    if [ "$${ARG_OPENCODE_VERSION}" = "latest" ]; then
-      curl -fsSL https://opencode.ai/install | bash
+    local installed_version=""
+    local requested_version="$${ARG_OPENCODE_VERSION#v}"
+    if [ -x "$${install_dir}/opencode" ]; then
+      installed_version=$(normalize_version "$("$install_dir/opencode" --version 2> /dev/null || true)")
+    fi
+
+    if is_v2_version "$${installed_version}" && { [ "$${ARG_OPENCODE_VERSION}" = "latest" ] || [ "$${installed_version}" = "$${requested_version}" ]; }; then
+      echo "OpenCode already installed at $${install_dir}/opencode (version: $${installed_version})"
     else
-      curl -fsSL https://opencode.ai/install | VERSION="$${ARG_OPENCODE_VERSION}" bash
+      echo "Installing OpenCode (version: $${ARG_OPENCODE_VERSION})..."
+      if [ "$${ARG_OPENCODE_VERSION}" = "latest" ]; then
+        curl -fsSL https://opencode.ai/v2/install | bash
+      else
+        curl -fsSL https://opencode.ai/v2/install | VERSION="$${ARG_OPENCODE_VERSION}" bash
+      fi
     fi
   fi
 
   export PATH="$${install_dir}:$PATH"
 
-  if [ ! -x "$${install_dir}/opencode" ] && ! command_exists opencode; then
-    echo "Error: Failed to install OpenCode; $${install_dir}/opencode not found."
+  if ! command_exists opencode; then
+    echo "Error: OpenCode is not installed or not on PATH."
+    return 1
+  fi
+
+  local active_version
+  active_version=$(normalize_version "$(opencode --version 2> /dev/null || true)")
+  if ! is_v2_version "$${active_version}"; then
+    echo "Error: OpenCode V2 (2.x) is required; found '$${active_version}'. Config was not changed."
+    return 1
+  fi
+  if [ "$${ARG_INSTALL_OPENCODE}" = "true" ] && [ "$${ARG_OPENCODE_VERSION}" != "latest" ] && [ "$${active_version}" != "$${ARG_OPENCODE_VERSION#v}" ]; then
+    echo "Error: Expected OpenCode $${ARG_OPENCODE_VERSION#v}; found $${active_version}. Config was not changed."
     return 1
   fi
 
   add_path_to_shell_profiles "$${install_dir}"
-  echo "OpenCode version: $(opencode --version 2> /dev/null || echo unknown)"
+  echo "OpenCode version: $${active_version}"
 }
 
 configure_opencode() {

@@ -41,14 +41,21 @@ variable "bailian_api_key" {
 }
 
 variable "github_pat" {
-  description = "GitHub Personal Access Token used for Qwen Code MCP server."
+  description = "GitHub Personal Access Token used for the GitHub MCP integration."
   type        = string
   default     = ""
   sensitive   = true
 }
 
-variable "tavily_api_key" {
-  description = "Tavily API key used for Qwen Code MCP server."
+variable "exa_api_key" {
+  description = "Exa API key used for the Exa search integration."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "context7_api_key" {
+  description = "Context7 API key used for the Context7 documentation MCP integration."
   type        = string
   default     = ""
   sensitive   = true
@@ -118,6 +125,19 @@ locals {
   workdir_cmd = var.workdir != null && var.workdir != "" ? "cd \"${var.workdir}\"\n" : ""
 }
 
+# Create the shared integration environment variables once for the whole
+# workspace. The wrapped assistant modules render their own config entries and
+# skip env creation so the variables are not duplicated.
+module "ai_integrations" {
+  source  = "registry.coder.com/mayzyo/ai-integrations/coder"
+  version = "0.1.0"
+
+  agent_id         = var.agent_id
+  exa_api_key      = var.exa_api_key
+  github_token     = var.github_pat
+  context7_api_key = var.context7_api_key
+}
+
 # --- Codex CLI ---
 module "codex" {
   count    = data.coder_parameter.run_codex.value ? data.coder_workspace.me.start_count : 0
@@ -175,7 +195,8 @@ resource "coder_app" "claude" {
 # --- Qwen Code ---
 module "qwen_code" {
   count    = data.coder_parameter.run_qwen_code.value ? data.coder_workspace.me.start_count : 0
-  source   = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/qwen-code"
+  source   = "registry.coder.com/mayzyo/qwen-code/coder"
+  version  = "1.1.0"
   agent_id = var.agent_id
   workdir  = var.workdir
 
@@ -254,21 +275,14 @@ module "qwen_code" {
         "Bash(mkdir *)",
       ]
     }
-    mcpServers = {
-      tavily = {
-        httpUrl = "https://mcp.tavily.com/mcp/"
-        headers = {
-          Authorization = "Bearer ${var.tavily_api_key}"
-        }
-      }
-      github = {
-        httpUrl = "https://api.githubcopilot.com/mcp/"
-        headers = {
-          Authorization = "Bearer ${var.github_pat}"
-        }
-      }
-    }
   }
+
+  # The Exa, GitHub, and Context7 MCP servers are merged into these settings by
+  # the qwen-code module from the credentials below.
+  exa_api_key            = var.exa_api_key
+  github_token           = var.github_pat
+  context7_api_key       = var.context7_api_key
+  create_integration_env = false
 }
 
 resource "coder_app" "qwen_code" {
@@ -288,7 +302,8 @@ resource "coder_app" "qwen_code" {
 # --- Antigravity CLI ---
 module "antigravity" {
   count    = data.coder_parameter.run_antigravity.value ? data.coder_workspace.me.start_count : 0
-  source   = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/antigravity-cli"
+  source   = "registry.coder.com/mayzyo/antigravity-cli/coder"
+  version  = "0.1.2"
   agent_id = var.agent_id
   workdir  = var.workdir
 }
@@ -310,10 +325,16 @@ resource "coder_app" "antigravity" {
 # --- OpenCode ---
 module "opencode" {
   count             = data.coder_parameter.run_opencode.value ? data.coder_workspace.me.start_count : 0
-  source            = "git::https://github.com/mayzyo/coder-registry.git//registry/mayzyo/modules/opencode"
+  source            = "registry.coder.com/mayzyo/opencode/coder"
+  version           = "2.0.0"
   agent_id          = var.agent_id
   workdir           = var.workdir
   openwebui_api_key = var.openwebui_api_key
+
+  exa_api_key            = var.exa_api_key
+  github_token           = var.github_pat
+  context7_api_key       = var.context7_api_key
+  create_integration_env = false
 }
 
 resource "coder_app" "opencode" {

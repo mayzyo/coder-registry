@@ -1,3 +1,5 @@
+mock_provider "coder" {}
+
 run "defaults" {
   command = plan
 
@@ -144,5 +146,28 @@ run "custom_approval_mode" {
   assert {
     condition     = strcontains(local.agentapi_start_script, "--approval-mode auto-edit")
     error_message = "start script should use the configured approval mode"
+  }
+}
+
+run "integrations" {
+  command = plan
+
+  variables {
+    agent_id         = "test-agent-id"
+    exa_api_key      = "test-exa-key"
+    github_token     = "test-github-token"
+    context7_api_key = "test-context7-key"
+  }
+}
+
+run "external_integration_env" {
+  command = plan
+
+  variables {
+    agent_id               = "test-agent-id"
+    exa_api_key            = "test-exa-key"
+    github_token           = "test-github-token"
+    context7_api_key       = "test-context7-key"
+    create_integration_env = false
   }
 }

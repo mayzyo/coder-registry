@@ -204,6 +204,33 @@ variable "qwen_generation_config" {
   default     = null
 }
 
+variable "exa_api_key" {
+  description = "Optional Exa API key. When set, the Exa search MCP integration is enabled and exposed as EXA_API_KEY."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "Optional GitHub token. When set, the GitHub MCP integration is enabled and exposed as GITHUB_PERSONAL_ACCESS_TOKEN."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "context7_api_key" {
+  description = "Optional Context7 API key. When set, the Context7 documentation MCP integration is enabled and exposed as CONTEXT7_API_KEY."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "create_integration_env" {
+  description = "Whether to create the Exa/GitHub/Context7 environment variables. Set false when an umbrella module already creates them."
+  type        = bool
+  default     = true
+}
+
 variable "enable_telemetry" {
   description = "Whether to enable Qwen Code telemetry in generated settings."
   type        = bool
@@ -258,7 +285,15 @@ locals {
     }
   }
 
-  settings_json = var.configure_settings ? (var.qwen_settings != null ? jsonencode(var.qwen_settings) : jsonencode(local.generated_settings)) : ""
+  # Merge the optional shared MCP integrations into the settings. User-provided
+  # mcpServers entries take precedence over generated ones. Settings are handled
+  # as JSON so custom settings with arbitrary shapes remain valid.
+  base_settings_json = var.qwen_settings != null ? jsonencode(var.qwen_settings) : jsonencode(local.generated_settings)
+  user_mcp_servers   = try(jsondecode(local.base_settings_json).mcpServers, {})
+  mcp_servers        = merge(module.ai_integrations.qwen_mcp, local.user_mcp_servers)
+  mcp_servers_json   = jsonencode({ for name, servers in { mcpServers = local.mcp_servers } : name => servers if length(local.mcp_servers) > 0 })
+
+  settings_json = var.configure_settings ? jsonencode(merge(jsondecode(local.base_settings_json), jsondecode(local.mcp_servers_json))) : ""
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
     ARG_INSTALL_QWEN_CODE  = tostring(var.install_qwen_code)
@@ -275,6 +310,17 @@ locals {
     ARG_SETTINGS_JSON      = local.settings_json != "" ? base64encode(local.settings_json) : ""
     ARG_CONFIGURE_SETTINGS = tostring(var.configure_settings)
   })
+}
+
+module "ai_integrations" {
+  source  = "registry.coder.com/mayzyo/ai-integrations/coder"
+  version = "0.1.0"
+
+  agent_id         = var.agent_id
+  create_env       = var.create_integration_env
+  exa_api_key      = var.exa_api_key
+  github_token     = var.github_token
+  context7_api_key = var.context7_api_key
 }
 
 module "coder_utils" {

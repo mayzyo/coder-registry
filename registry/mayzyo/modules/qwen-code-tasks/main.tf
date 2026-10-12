@@ -79,6 +79,33 @@ variable "qwen_base_url" {
   default     = "http://host.docker.internal:11434/v1"
 }
 
+variable "exa_api_key" {
+  description = "Optional Exa API key. Enables the Exa search MCP integration in the wrapped Qwen Code module."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "Optional GitHub token. Enables the GitHub MCP integration in the wrapped Qwen Code module."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "context7_api_key" {
+  description = "Optional Context7 API key. Enables the Context7 documentation MCP integration in the wrapped Qwen Code module."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "create_integration_env" {
+  description = "Whether the wrapped Qwen Code module creates the Exa/GitHub/Context7 environment variables. Set false when an umbrella module already creates them."
+  type        = bool
+  default     = true
+}
+
 variable "qwen_settings" {
   description = "Optional complete Qwen Code settings object. JSON strings are accepted for compatibility and decoded before use."
   type        = any
@@ -234,7 +261,8 @@ locals {
 }
 
 module "qwen_code" {
-  source = "../qwen-code"
+  source  = "registry.coder.com/mayzyo/qwen-code/coder"
+  version = "1.1.0"
 
   agent_id             = var.agent_id
   icon                 = var.icon
@@ -246,6 +274,11 @@ module "qwen_code" {
   qwen_api_key         = var.qwen_api_key
   qwen_api_key_env_var = var.qwen_api_key_env_var
   qwen_settings        = local.settings
+
+  exa_api_key            = var.exa_api_key
+  github_token           = var.github_token
+  context7_api_key       = var.context7_api_key
+  create_integration_env = var.create_integration_env
 }
 
 module "agentapi" {

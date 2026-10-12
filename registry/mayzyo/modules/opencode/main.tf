@@ -45,27 +45,54 @@ variable "install_opencode" {
 }
 
 variable "opencode_version" {
-  description = "The OpenCode version to install. Use latest or a semver string."
+  description = "The OpenCode V2 version to install. Use latest or a 2.x semver string."
   type        = string
   default     = "latest"
 
   validation {
-    condition     = var.opencode_version == "latest" || can(regex("^v?[0-9]+\\.[0-9]+\\.[0-9]+([.-][A-Za-z0-9]+)*$", var.opencode_version))
-    error_message = "opencode_version must be latest or a semver string."
+    condition     = var.opencode_version == "latest" || can(regex("^v?2\\.[0-9]+\\.[0-9]+([.-][A-Za-z0-9]+)*$", var.opencode_version))
+    error_message = "opencode_version must be latest or an OpenCode V2 (2.x) semver string."
   }
 }
 
 variable "opencode_config" {
-  description = "Complete OpenCode JSON/JSONC config to write to ~/.config/opencode/opencode.jsonc. When empty, a default Open WebUI provider config is generated."
+  description = "Complete OpenCode JSON/JSONC config to write to ~/.config/opencode/opencode.jsonc. When empty, a default native OpenCode V2 config is generated for an Open WebUI provider, with Exa search selected when exa_api_key is set."
   type        = string
   default     = ""
 }
 
 variable "openwebui_api_key" {
-  description = "Optional API key for the Open WebUI endpoint. When set, it is injected into the default config as options.apiKey using {env:OPENWEBUI_API_KEY} and exposed to the agent through OPENWEBUI_API_KEY."
+  description = "Optional API key for the Open WebUI endpoint. When set, it is injected into the default config as providers.openwebui.settings.apiKey using {env:OPENWEBUI_API_KEY} and exposed to the agent through OPENWEBUI_API_KEY."
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "exa_api_key" {
+  description = "Optional Exa API key. Enables the Exa web search provider and the Exa MCP integration, and exposes EXA_API_KEY to the agent."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "Optional GitHub token. When set, the GitHub MCP integration is enabled and exposed as GITHUB_PERSONAL_ACCESS_TOKEN."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "context7_api_key" {
+  description = "Optional Context7 API key. When set, the Context7 MCP integration is enabled and exposed as CONTEXT7_API_KEY."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "create_integration_env" {
+  description = "Whether to create the Exa/GitHub/Context7 environment variables. Set false when an umbrella module already creates them."
+  type        = bool
+  default     = true
 }
 
 resource "coder_env" "openwebui_api_key" {
@@ -81,20 +108,24 @@ locals {
 
   openwebui_base_url = "http://open-webui.time-emoji-services/api"
 
-  openwebui_options = var.openwebui_api_key != "" ? {
+  openwebui_settings = var.openwebui_api_key != "" ? {
     baseURL = local.openwebui_base_url
     apiKey  = "{env:OPENWEBUI_API_KEY}"
     } : {
     baseURL = local.openwebui_base_url
   }
 
-  default_opencode_config = {
+  # Native OpenCode V2 configuration. The V2 schema keeps the V1
+  # "https://opencode.ai/config.json" schema URL for editor integration, but
+  # uses the native V2 shapes: providers/settings, agents, websearch, and
+  # mcp.servers.
+  base_opencode_config = {
     "$schema" = "https://opencode.ai/config.json"
-    provider = {
+    providers = {
       openwebui = {
-        npm     = "@ai-sdk/openai-compatible"
-        name    = "Open WebUI"
-        options = local.openwebui_options
+        name     = "Open WebUI"
+        package  = "@opencode/ai/providers/openai-compatible"
+        settings = local.openwebui_settings
         models = {
           "local"               = { name = "Qwen 3.8 Flash" }
           "glm-5.3"             = { name = "GLM 5.3" }
@@ -102,8 +133,7 @@ locals {
         }
       }
     }
-    small_model = "openwebui/local"
-    agent = {
+    agents = {
       build      = { model = "openwebui/deepseek-v4.1-flash" }
       plan       = { model = "openwebui/glm-5.3" }
       general    = { model = "openwebui/deepseek-v4.1-flash", steps = 25 }
@@ -115,6 +145,12 @@ locals {
     }
   }
 
+  default_opencode_config = merge(
+    local.base_opencode_config,
+    { mcp = { servers = module.ai_integrations.opencode_mcp } },
+    module.ai_integrations.enabled.exa ? { websearch = { provider = "exa" } } : {},
+  )
+
   opencode_config_json = var.opencode_config != "" ? var.opencode_config : jsonencode(local.default_opencode_config)
 
   install_script = templatefile("${path.module}/scripts/install.sh.tftpl", {
@@ -123,6 +159,17 @@ locals {
     ARG_WORKDIR          = base64encode(local.workdir)
     ARG_OPENCODE_CONFIG  = base64encode(local.opencode_config_json)
   })
+}
+
+module "ai_integrations" {
+  source  = "registry.coder.com/mayzyo/ai-integrations/coder"
+  version = "0.1.0"
+
+  agent_id         = var.agent_id
+  create_env       = var.create_integration_env
+  exa_api_key      = var.exa_api_key
+  github_token     = var.github_token
+  context7_api_key = var.context7_api_key
 }
 
 module "coder_utils" {
